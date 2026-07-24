@@ -7,6 +7,7 @@ import { QUALITY_PROFILES } from "@/lib/quality";
 import { NODE_DEFS } from "@/simulation/nodes";
 import { useUIStore } from "@/store/uiStore";
 import { CameraRig } from "./CameraRig";
+import { HeroOrder } from "./HeroOrder";
 import { MachineEnvironment } from "./MachineEnvironment";
 import { OrderParticles } from "./OrderParticles";
 import { Pathways } from "./Pathways";
@@ -59,6 +60,10 @@ export default function SceneRoot() {
         stencil: false,
       }}
       frameloop="always"
+      onCreated={({ gl }) => {
+        // A touch of exposure headroom — ACES otherwise crushes the graphite.
+        gl.toneMappingExposure = 1.2;
+      }}
     >
       <ContextGuard />
       <color attach="background" args={[PALETTE.bg]} />
@@ -71,6 +76,7 @@ export default function SceneRoot() {
           <StationNode key={def.id} def={def} revealed={revealed} />
         ))}
         <Pathways />
+        <HeroOrder />
         <OrderParticles key={`pool-${profile.particles}`} pool={profile.particles} />
         <QueueMarkers key={`queue-${profile.queueDots}`} maxPerNode={profile.queueDots} />
         <ScanEffects />

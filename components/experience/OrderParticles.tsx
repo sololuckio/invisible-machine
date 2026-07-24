@@ -3,21 +3,24 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { smooth01 } from "@/lib/motion";
 import { PALETTE } from "@/lib/palette";
 import { scrollState } from "@/lib/scrollState";
 import { NODE_MAP } from "@/simulation/nodes";
 import { useSimStore } from "@/store/simStore";
 import { useUIStore } from "@/store/uiStore";
-import { BYPASS_SEGMENT, FLOW_SEGMENTS, HERO_CURVE } from "./curves";
+import { BYPASS_SEGMENT, FLOW_SEGMENTS } from "./curves";
+import { queueHold } from "./queueLayout";
 
 /**
- * Orders as travelling light. A fixed instanced pool is recycled endlessly:
- * particles spawn at acquisition in proportion to the live arrival rate,
- * wait in orbit when a station's queue deepens, occasionally fail and fall,
- * and flash out through the revenue ledger when they complete.
+ * Orders as travelling work. A fixed instanced pool is recycled endlessly:
+ * tokens spawn at acquisition in proportion to the live arrival rate, ease
+ * between stations with real acceleration and arrival slow-down, hold in the
+ * station's physical queue lane while its backlog clears, occasionally fail
+ * and fall, and release through the revenue ledger when they complete.
  *
- * In Chapter 2 particle #0 becomes the hero order, driven directly by
- * scroll along the full journey.
+ * Tokens are oriented octahedra — compact carriers, not debug dots — warm
+ * like the customers they came from, against the machine's cool signals.
  */
 
 const enum Mode {
@@ -71,12 +74,14 @@ export function OrderParticles({ pool }: { pool: number }) {
 
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const pos = useMemo(() => new THREE.Vector3(), []);
+  const tangent = useMemo(() => new THREE.Vector3(), []);
+  const look = useMemo(() => new THREE.Vector3(), []);
+  const hold = useMemo(() => new THREE.Vector3(), []);
   const color = useMemo(() => new THREE.Color(), []);
-  const cSignal = useMemo(() => new THREE.Color(PALETTE.signal), []);
+  const cOrder = useMemo(() => new THREE.Color(PALETTE.order), []);
   const cWarn = useMemo(() => new THREE.Color(PALETTE.warn), []);
   const cDanger = useMemo(() => new THREE.Color(PALETTE.danger), []);
   const cSuccess = useMemo(() => new THREE.Color(PALETTE.success), []);
-  const cHero = useMemo(() => new THREE.Color(PALETTE.hero), []);
 
   useFrame((state, rawDelta) => {
     const mesh = meshRef.current;
@@ -87,13 +92,12 @@ export function OrderParticles({ pool }: { pool: number }) {
     const reduced = useUIStore.getState().reducedMotion;
     const speedMul = reduced ? 0.35 : 1;
     const cf = scrollState.chapterFloat;
-    // The hero order exists from the end of Chapter 1 (as the split finishes)
-    // through the descent of Chapter 2.
-    const heroMode = cf >= 1.78 && cf < 3.05;
+    // While the hero order carries Chapter 2, ambient traffic stays sparse.
+    const heroWindow = cf >= 1.78 && cf < 3.05;
     const bypassActive = sim.appliedRecommendations.includes("alternate-express-route");
 
     // How many particles should be alive, tracking the real arrival rate.
-    const targetActive = heroMode
+    const targetActive = heroWindow
       ? 4
       : Math.min(
           pool,
@@ -111,27 +115,19 @@ export function OrderParticles({ pool }: { pool: number }) {
 
     for (let i = 0; i < pool; i++) {
       const p = particles[i];
-      const isHero = heroMode && i === 0;
 
       // ---- lifecycle -----------------------------------------------------
-      if (!isHero) {
-        if (p.mode === Mode.Idle && active < targetActive && spawnBudget > 0) {
-          spawnBudget--;
-          active++;
-          p.mode = Mode.Moving;
-          p.seg = 0;
-          p.t = p.j1 * 0.1;
-          p.speed = 2.5 + p.j2 * 1.2;
-        } else if (
-          p.mode !== Mode.Idle &&
-          active > targetActive * 1.4 &&
-          p.seg === 0 &&
-          p.t < 0.1
-        ) {
-          // Demand collapsed — quietly retire surplus particles at the inlet.
-          p.mode = Mode.Idle;
-          active--;
-        }
+      if (p.mode === Mode.Idle && active < targetActive && spawnBudget > 0) {
+        spawnBudget--;
+        active++;
+        p.mode = Mode.Moving;
+        p.seg = 0;
+        p.t = p.j1 * 0.1;
+        p.speed = 2.5 + p.j2 * 1.2;
+      } else if (p.mode !== Mode.Idle && active > targetActive * 1.4 && p.seg === 0 && p.t < 0.1) {
+        // Demand collapsed — quietly retire surplus particles at the inlet.
+        p.mode = Mode.Idle;
+        active--;
       }
 
       if (p.mode === Mode.Moving) {
@@ -186,28 +182,29 @@ export function OrderParticles({ pool }: { pool: number }) {
 
       // ---- position + appearance ----------------------------------------
       let scale = 0;
-      if (isHero) {
-        const u = THREE.MathUtils.clamp(scrollState.order, 0, 0.999);
-        HERO_CURVE.getPointAt(u, pos);
-        scale = 2.7;
-        color.copy(cHero);
-      } else if (p.mode === Mode.Moving) {
+      let stretch = 1;
+      let oriented = false;
+      if (p.mode === Mode.Moving) {
         const seg = p.seg === BYPASS ? BYPASS_SEGMENT : FLOW_SEGMENTS[p.seg];
-        seg.curve.getPoint(Math.min(p.t, 1), pos);
+        // Ease the sampled position: leave with acceleration, arrive braking.
+        const u = smooth01(Math.min(p.t, 1));
+        seg.curve.getPoint(u, pos);
+        seg.curve.getTangent(u, tangent);
+        oriented = true;
+        // Faster mid-route travel visibly stretches the carrier.
+        stretch = 1 + Math.sin(Math.min(p.t, 1) * Math.PI) * 0.5;
         scale = 1;
-        color.copy(cSignal);
+        color.copy(cOrder);
       } else if (p.mode === Mode.Queued) {
         const seg = p.seg === BYPASS ? BYPASS_SEGMENT : FLOW_SEGMENTS[p.seg];
         const def = NODE_MAP[seg.to];
-        const spin = reduced ? 0 : t * 0.55;
-        pos.set(
-          def.position[0] + Math.cos(p.angle + spin) * p.radius,
-          def.position[1] + 0.1 + Math.sin(t * 1.3 + p.angle) * (reduced ? 0 : 0.06),
-          def.position[2] + Math.sin(p.angle + spin) * p.radius,
-        );
-        scale = 0.85;
+        // Hold in the station's physical queue lane, advancing to release.
+        queueHold(p.j1, p.wait / Math.max(p.waitMax, 0.001), hold);
+        pos.set(def.position[0] + hold.x, def.position[1] + hold.y, def.position[2] + hold.z);
+        if (!reduced) pos.y += Math.sin(t * 1.3 + p.angle) * 0.02;
+        scale = 0.8;
         const strain = THREE.MathUtils.clamp(p.waitMax / 2.2, 0, 1);
-        color.copy(cSignal).lerp(cWarn, strain);
+        color.copy(cOrder).lerp(cWarn, strain);
       } else if (p.mode === Mode.Failing) {
         const seg = p.seg === BYPASS ? BYPASS_SEGMENT : FLOW_SEGMENTS[p.seg];
         const def = NODE_MAP[seg.to];
@@ -227,7 +224,14 @@ export function OrderParticles({ pool }: { pool: number }) {
 
       if (scale > 0) {
         dummy.position.copy(pos);
-        dummy.scale.setScalar(scale);
+        if (oriented) {
+          look.copy(pos).add(tangent);
+          dummy.lookAt(look);
+          dummy.rotation.z = t * 1.7 + p.j1 * 6.28;
+        } else {
+          dummy.rotation.set(0, t * 0.6 + p.j1 * 6.28, 0);
+        }
+        dummy.scale.set(scale, scale, scale * stretch);
       } else {
         dummy.scale.setScalar(0);
       }
@@ -242,7 +246,7 @@ export function OrderParticles({ pool }: { pool: number }) {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, pool]} frustumCulled={false}>
-      <icosahedronGeometry args={[0.095, 1]} />
+      <octahedronGeometry args={[0.085, 0]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
   );

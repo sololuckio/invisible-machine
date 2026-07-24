@@ -14,10 +14,14 @@ export const PALETTE = {
   dim: "#9ba1a6",
   signal: "#6ee7ff",
   signalDeep: "#1d4b5c",
+  /** The intelligence layer's own voice — precise, pale, never the warning. */
+  intel: "#c9d9ff",
   warn: "#ffb454",
   danger: "#ff5d5d",
   success: "#7fe0b2",
   hero: "#ffe9c4",
+  /** Customer-originating orders read warmer than internal data signals. */
+  order: "#ffd9a8",
 } as const;
 
 import type { NodeStatus } from "@/simulation/types";
