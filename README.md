@@ -1,36 +1,153 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Invisible Machine
 
-## Getting Started
+**An interactive business-systems experience.** Every business is a living system: beneath a
+calm storefront sit customers, orders, payments, inventory, staff, logistics, support and cash
+flow. This site visualises that hidden system as a cinematic machine descending beneath the
+surface — and lets visitors interfere with it.
 
-First, run the development server:
+Visitors follow a single order through eight connected stations, crank demand until the system
+breaks at its narrowest point, inspect the bottleneck, activate a deterministic "intelligence
+layer" that reads the live simulation and recommends interventions, and compare the ignored
+system against the managed one. Every number on the page is computed live by the on-page
+simulation — no mock data, no video.
+
+Built as a portfolio showcase of creative development, systems thinking, simulation design,
+3D/graphics engineering, accessibility and performance work.
+
+## Technology
+
+- **Next.js 15** (App Router) + **React 19** + **TypeScript** (strict)
+- **Three.js / React Three Fiber / drei** — the 3D machine (procedural geometry only, no
+  imported models or textures)
+- **GSAP + ScrollTrigger** — text reveals (lazy-loaded)
+- **Zustand** — simulation + UI state
+- **Tailwind CSS 4** + a hand-written design-system layer in `app/globals.css`
+- **Web Audio API** — fully synthesised optional sound layer (no audio files)
+- **Vitest + Testing Library** — engine and UI tests
+
+## Running it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # development (Turbopack) — http://localhost:3000
+npm run build      # production build
+npm run start      # serve the production build
+npm test           # simulation + component tests (vitest)
+npm run lint       # eslint
+npm run typecheck  # tsc --noEmit
+npm run format     # prettier
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+app/                    Layout, page, global CSS, SEO assets (robots, sitemap,
+                        manifest, icon, generated Open Graph image)
+components/
+  chapters/             The eight narrative chapters + scroll tracker
+  experience/           The 3D machine (canvas, stations, particles, pathways,
+                        camera rig, surface split, AI scan effects)
+  fallback/             Live 2D SVG schematic (no-WebGL / diagram view)
+  system/               Interactive consoles (controls, metrics, inspector,
+                        AI panel, comparison ledger, scenario selector, Lab)
+  ui/                   Chrome (nav, boot sequence, settings, sliders, icons,
+                        screen-reader status channel)
+data/                   All copy, site config, projects — no copy in components
+hooks/                  Simulation loop, chapter director, sound director,
+                        environment probe, GSAP reveals
+lib/                    Audio synth, formatting, quality tiers, storage,
+                        palette, scroll state, shared journey actions
+simulation/             The pure engine (see below) — no React imports
+store/                  Zustand stores (simulation runtime, UI state)
+tests/                  Vitest suites (engine + component smoke tests)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Simulation architecture
 
-## Learn More
+`simulation/` is pure, deterministic TypeScript — no `Math.random`, no `Date` — so identical
+inputs always produce identical trajectories, which is what makes the tests and the
+before/after comparison honest.
 
-To learn more about Next.js, take a look at the following resources:
+- `engine.ts` — a discrete-time queueing network. One cycle ≈ one operational hour. Orders
+  arrive at a demand-driven rate (with a deterministic ripple), flow through
+  acquisition → checkout → payment → inventory → fulfilment → delivery → revenue, queue in
+  front of undersized stations, fail at error-prone gates, and are abandoned by impatient
+  customers when backlogs deepen. Inventory consumes and replenishes physical stock. Failures
+  and lateness generate support issues. Derived metrics: satisfaction, delivery performance,
+  lead time, operating cost, captured/trapped revenue, system health.
+- **Bottleneck detection** is computed, not scripted: the flow-path station with the deepest
+  sustained backlog (support only counts when the pipeline itself is healthy).
+- `recommendations.ts` — a rule-based analysis engine that reads the live state and returns
+  ranked interventions **with the evidence that justified them** (live queue counts,
+  utilisation, stock levels). Different states produce different advice; applied advice is
+  never repeated.
+- `apply.ts` — applies a recommendation's effect (control changes, capacity tweaks, stock
+  boosts) to the state; the engine then reacts naturally.
+- `compare.ts` — runs the same scenario twice for the same number of cycles (untouched vs.
+  scan-and-apply three times) and reports both endings.
+- `scenarios.ts` — Balanced Business, Viral Demand Spike, Operational Breakdown. The viral
+  spike breaks at fulfilment; the breakdown starves at inventory — verified by tests.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The visual layer subscribes to the same store the engine writes; 3D frame loops read state via
+`getState()` so rendering never causes React re-render churn.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Rendering-quality system
 
-## Deploy on Vercel
+Three tiers — **High / Balanced / Reduced** — controlling device-pixel-ratio caps, particle
+pool size, queue-marker counts, antialiasing and environment detail (`lib/quality.ts`). A tier
+is auto-detected from device signals (cores, memory, pointer type, viewport) and can be
+overridden in the settings panel (persisted for the session). The simulation clock pauses when
+the tab is hidden; the three.js bundle is code-split and lazy-loaded so the opening copy never
+waits for it.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Accessibility
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Semantic structure, one `h1`, labelled sections, skip link, logical tab order
+- Every control is a real `<button>`/`<input type="range">`; nothing is hover-only
+- A visually-hidden structured **system overview** describes the whole experience
+- A polite `aria-live` channel narrates chapter changes, new bottlenecks, scan results and
+  applied recommendations
+- **`prefers-reduced-motion`**: no cinematic camera travel (fixed overview shot), the surface
+  split becomes a fade, particle motion is minimised, CSS animations are disabled, boot shows
+  instantly
+- **No WebGL / 3D crash**: an error boundary demotes the experience to a live 2D SVG
+  schematic driven by the same simulation, with keyboard-selectable stations. The same
+  diagram is available to everyone via Settings → "Diagram view"
+- Status is never conveyed by colour alone (labels + values accompany every state)
+
+## Editing content
+
+All copy and configuration live in `data/`:
+
+- `data/copy.ts` — every narrative line, chapter headline, UI string and the screen-reader
+  overview
+- `data/site.ts` — title, description, author, **production URL** (`SITE.url` — replace the
+  placeholder before deploying), contact links (entries with an empty `href` are hidden until
+  you fill them)
+- `data/projects.ts` — featured work (`PROJECTS`) and capabilities (`CAPABILITIES`); add a
+  project by appending an object with name, tag, role, summary, stack, URL and status
+- Simulation tuning lives in `simulation/` (`scenarios.ts` for presets, `nodes.ts` for
+  station definitions and layout positions in both 3D and the 2D diagram)
+
+## Deploying
+
+Any Node host that runs Next.js 15 works:
+
+```bash
+npm run build && npm run start   # self-hosted (PORT=3000 by default)
+```
+
+or push the repository to Vercel/Netlify with default Next.js settings. Before deploying:
+
+1. Set `SITE.url` in `data/site.ts` to the real domain (feeds canonical URL, sitemap, robots
+   and Open Graph).
+2. Fill the TODO contact links in `data/site.ts`.
+
+## Known limitations
+
+- The Open Graph image is generated at request/build time by `app/opengraph-image.tsx`
+  (satori); customise it there if you want a designed bitmap instead.
+- The sound layer is intentionally minimal (synthesised ambience + event tones) and stays off
+  until the visitor enables it.
+- The simulation is a believable abstraction, not an economics model — units are honest
+  relative to each other, not calibrated to any real business.
