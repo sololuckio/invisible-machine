@@ -3,6 +3,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { damp, easeInOut } from "@/lib/motion";
 import { isCoarsePointer } from "@/lib/quality";
 import { scrollState } from "@/lib/scrollState";
 import { NODE_MAP } from "@/simulation/nodes";
@@ -13,16 +14,24 @@ import { useUIStore } from "@/store/uiStore";
  * The cinematic descent. Camera poses are keyed to chapter positions:
  * hover over the surface, dive with the hero order, settle into the control
  * room, close on the constraint, and finally rise back to the closing seam.
- * Everything is damped — no scroll-jacking, no sudden cuts.
+ * The body of the camera lags its gaze slightly — movement with weight, not
+ * drift — and everything is damped: no scroll-jacking, no sudden cuts.
+ * On narrow viewports every pose pulls back so the machine stays composed
+ * rather than cropped.
  */
 
 type Pose = { p: [number, number, number]; t: [number, number, number] };
 
 const POSES: Record<number, Pose> = {
-  3: { p: [9.5, -7.5, 12.5], t: [0.5, -9, 0] },
-  5: { p: [7.5, -6, 11.5], t: [0, -10, 0] },
-  6: { p: [0.5, -9.5, 15.5], t: [0, -9.5, 0] },
-  7: { p: [-6.5, -3.5, 16.5], t: [0, -8, 0] },
+  // Ch3 — control room: machine spine centre-frame between text and console.
+  3: { p: [9.2, -7.6, 12.8], t: [0.4, -9.6, 0] },
+  // Ch5 — intelligence: a step back, whole working depth in view.
+  5: { p: [6.8, -6.4, 12.4], t: [0, -10.2, 0] },
+  // Ch6 — comparison: long frontal elevation, both fates readable.
+  6: { p: [0.5, -9.5, 16], t: [0, -9.8, 0] },
+  // Ch7 — creator: low reverse angle, the machine as built object.
+  7: { p: [-6.8, -3.4, 16.2], t: [0, -8.2, 0] },
+  // Ch8 — back to the healed surface.
   8: { p: [0, 2.1, 11], t: [0, -0.6, 0] },
 };
 
@@ -31,15 +40,13 @@ const SURFACE_B: Pose = { p: [0, 4.4, 8.4], t: [0, -3.2, 0] };
 const LAB_POSE: Pose = { p: [10.5, -8.5, 13.5], t: [0, -9.5, 0] };
 const REDUCED_POSE: Pose = { p: [11, -6.5, 17], t: [0, -8.5, 0] };
 
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-}
-
 function bottleneckPose(): Pose {
   const sim = useSimStore.getState().sim;
   const id = sim.bottleneck ?? "fulfilment";
   const [x, y, z] = NODE_MAP[id].position;
-  return { p: [x + 3.4, y + 1.6, z + 4.8], t: [x, y, z] };
+  // Three-quarter close-up: constraint right of centre, queue rail visible,
+  // upstream context kept in the top of frame.
+  return { p: [x + 3.0, y + 2.5, z + 5.6], t: [x - 0.6, y + 0.45, z] };
 }
 
 function poseAt(k: number): Pose {
@@ -50,6 +57,7 @@ function poseAt(k: number): Pose {
 
 export function CameraRig() {
   const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
   const desiredPos = useMemo(() => new THREE.Vector3(), []);
   const desiredTgt = useMemo(() => new THREE.Vector3(), []);
   const currentTgt = useRef(new THREE.Vector3(0, 0.2, 0));
@@ -87,20 +95,32 @@ export function CameraRig() {
       desiredTgt.set(...from.t).lerp(b.set(...to.t), frac);
     }
 
+    // Narrow viewports: pull back along the view axis so compositions are
+    // re-framed for portrait, not cropped from the desktop shot.
+    const aspect = size.width / Math.max(1, size.height);
+    if (aspect < 0.9) {
+      const back = 1 + (0.9 - aspect) * 0.85;
+      desiredPos.sub(desiredTgt).multiplyScalar(back).add(desiredTgt);
+    }
+
     if (!ui.reducedMotion) {
-      // Gentle idle drift keeps the machine alive between scrolls.
-      desiredPos.x += Math.sin(t * 0.23) * 0.18;
-      desiredPos.y += Math.sin(t * 0.31) * 0.1;
+      // A breath of idle drift keeps the machine alive between scrolls —
+      // quieter in the operating chapters where panels need a steady stage.
+      const consoleChapter = cf >= 2.6 && cf < 7.4;
+      const driftAmp = consoleChapter ? 0.07 : 0.16;
+      desiredPos.x += Math.sin(t * 0.23) * driftAmp;
+      desiredPos.y += Math.sin(t * 0.31) * driftAmp * 0.6;
       // Pointer parallax (mouse only — never fights touch scrolling).
       if (!coarse && !ui.labOpen) {
-        desiredPos.x += state.pointer.x * 0.55;
-        desiredPos.y += state.pointer.y * 0.3;
+        const parallax = consoleChapter ? 0.3 : 0.55;
+        desiredPos.x += state.pointer.x * parallax;
+        desiredPos.y += state.pointer.y * parallax * 0.55;
       }
     }
 
-    const k = 1 - Math.exp(-delta * 2.6);
-    camera.position.lerp(desiredPos, k);
-    currentTgt.current.lerp(desiredTgt, k);
+    // The gaze leads; the camera body follows a beat behind — weight.
+    camera.position.lerp(desiredPos, damp(2.1, delta));
+    currentTgt.current.lerp(desiredTgt, damp(3.0, delta));
     camera.lookAt(currentTgt.current);
   });
 
