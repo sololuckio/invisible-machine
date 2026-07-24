@@ -14,9 +14,10 @@ export function useEnvironmentSetup(): void {
   useEffect(() => {
     const ui = useUIStore.getState();
 
-    // WebGL: if unavailable, the diagram becomes the primary view.
+    // WebGL: capability is a device fact, set once here (and reconfirmed by a
+    // successful scene start) — never inferred from what is currently mounted.
     const webglOk = detectWebGL();
-    ui.setWebglOk(webglOk);
+    ui.setWebglCapability(webglOk ? "available" : "unavailable");
 
     // Quality: session override wins, otherwise detect.
     const storedQuality = readSession(STORAGE_KEYS.quality) as Quality | null;
@@ -26,10 +27,13 @@ export function useEnvironmentSetup(): void {
       ui.setQuality(detectQuality(), "auto");
     }
 
-    // View mode: restore, but never force 3D onto a device without WebGL.
+    // View mode: restore the user's preference; fall back automatically when
+    // the device can't do 3D. Neither path may rewrite capability.
     const storedView = readSession(STORAGE_KEYS.view);
-    if (!webglOk || storedView === "diagram") {
-      ui.setViewMode("diagram");
+    if (!webglOk) {
+      ui.setViewMode("diagram", "auto");
+    } else if (storedView === "diagram") {
+      ui.setViewMode("diagram", "user");
     }
 
     // Reduced motion: track live, not just at load.

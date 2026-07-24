@@ -6,6 +6,12 @@ import type { NodeId } from "@/simulation/types";
 
 export type ScanStatus = "idle" | "scanning" | "complete";
 export type ViewMode = "3d" | "diagram";
+/** What the device can do — never derived from what is currently mounted. */
+export type WebglCapability = "unknown" | "available" | "unavailable";
+/** Why the current view mode is what it is. */
+export type ViewModeSource = "auto" | "user" | "error";
+/** Lifecycle of the live 3D scene (independent of capability). */
+export type SceneStatus = "idle" | "ready" | "failed";
 
 interface UIStore {
   bootDone: boolean;
@@ -33,11 +39,28 @@ interface UIStore {
   setQuality: (q: Quality, source: "auto" | "user") => void;
 
   viewMode: ViewMode;
-  setViewMode: (v: ViewMode) => void;
+  viewModeSource: ViewModeSource;
+  /** Only a "user" source persists the preference. */
+  setViewMode: (v: ViewMode, source?: ViewModeSource) => void;
 
-  /** False once WebGL is missing or the 3D layer crashed — diagram takes over. */
-  webglOk: boolean;
-  setWebglOk: (ok: boolean) => void;
+  /**
+   * Device WebGL capability, set by the environment probe and confirmed by a
+   * successful scene start. Choosing the diagram view or unmounting the canvas
+   * never touches this.
+   */
+  webglCapability: WebglCapability;
+  setWebglCapability: (c: WebglCapability) => void;
+
+  /** Runtime state of the 3D scene; a crash here is not device incompatibility. */
+  sceneStatus: SceneStatus;
+  /** Bumped on retry so the error boundary and canvas remount fresh. */
+  sceneEpoch: number;
+  /** Called when the R3F canvas has created its renderer successfully. */
+  markSceneReady: () => void;
+  /** Genuine runtime failure (crash or unexpected context loss while mounted). */
+  reportSceneFailure: () => void;
+  /** Deliberate retry after a runtime failure — one fresh mount per call. */
+  retry3D: () => void;
 
   reducedMotion: boolean;
   setReducedMotion: (v: boolean) => void;
@@ -87,13 +110,31 @@ export const useUIStore = create<UIStore>()((set) => ({
   },
 
   viewMode: "3d",
-  setViewMode: (viewMode) => {
-    writeSession(STORAGE_KEYS.view, viewMode);
-    set({ viewMode });
+  viewModeSource: "auto",
+  setViewMode: (viewMode, source = "user") => {
+    if (source === "user") writeSession(STORAGE_KEYS.view, viewMode);
+    set({ viewMode, viewModeSource: source });
   },
 
-  webglOk: true,
-  setWebglOk: (webglOk) => set({ webglOk }),
+  webglCapability: "unknown",
+  setWebglCapability: (webglCapability) => set({ webglCapability }),
+
+  sceneStatus: "idle",
+  sceneEpoch: 0,
+  markSceneReady: () => set({ sceneStatus: "ready", webglCapability: "available" }),
+  reportSceneFailure: () =>
+    set({ sceneStatus: "failed", viewMode: "diagram", viewModeSource: "error" }),
+  retry3D: () =>
+    set((s) => {
+      if (s.webglCapability === "unavailable") return s;
+      return {
+        ...s,
+        sceneStatus: "idle",
+        sceneEpoch: s.sceneEpoch + 1,
+        viewMode: "3d",
+        viewModeSource: "user",
+      };
+    }),
 
   reducedMotion: false,
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),

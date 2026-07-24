@@ -1,6 +1,7 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useEffect } from "react";
 import { PALETTE } from "@/lib/palette";
 import { QUALITY_PROFILES } from "@/lib/quality";
 import { NODE_DEFS } from "@/simulation/nodes";
@@ -15,12 +16,32 @@ import { StationNode } from "./StationNode";
 import { SurfacePlate } from "./SurfacePlate";
 
 /**
+ * Distinguishes a genuine GPU context loss from R3F's deliberate
+ * force-context-loss during canvas disposal: the effect cleanup removes the
+ * listener before R3F tears the renderer down, so switching to the diagram
+ * view never registers as a device failure.
+ */
+function ContextGuard() {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    const el = gl.domElement;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      useUIStore.getState().reportSceneFailure();
+    };
+    el.addEventListener("webglcontextlost", onLost);
+    useUIStore.getState().markSceneReady();
+    return () => el.removeEventListener("webglcontextlost", onLost);
+  }, [gl]);
+  return null;
+}
+
+/**
  * The full 3D machine. Loaded lazily so the opening copy never waits for
  * the three.js bundle; quality tier controls resolution and particle load.
  */
 export default function SceneRoot() {
   const quality = useUIStore((s) => s.quality);
-  const setWebglOk = useUIStore((s) => s.setWebglOk);
   // Chapter 1's promise: nothing below the surface exists until it opens.
   const revealed = useUIStore(
     (s) => s.surfaceOpen || s.labOpen || s.reducedMotion || s.activeChapter >= 2,
@@ -38,17 +59,8 @@ export default function SceneRoot() {
         stencil: false,
       }}
       frameloop="always"
-      onCreated={({ gl }) => {
-        gl.domElement.addEventListener(
-          "webglcontextlost",
-          (e) => {
-            e.preventDefault();
-            setWebglOk(false);
-          },
-          { once: true },
-        );
-      }}
     >
+      <ContextGuard />
       <color attach="background" args={[PALETTE.bg]} />
       <fog attach="fog" args={[PALETTE.bg, 14, 48]} />
 

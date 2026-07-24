@@ -38,20 +38,23 @@ class CanvasErrorBoundary extends Component<
 
 /**
  * The fixed backdrop of the whole experience: the 3D machine when WebGL is
- * available and wanted, otherwise the live 2D system diagram.
+ * available and wanted, otherwise the live 2D system diagram. Capability,
+ * chosen view and runtime failure are independent — the canvas can unmount
+ * and return any number of times.
  */
 export function ExperienceCanvas() {
-  const webglOk = useUIStore((s) => s.webglOk);
+  const webglCapability = useUIStore((s) => s.webglCapability);
   const viewMode = useUIStore((s) => s.viewMode);
-  const setWebglOk = useUIStore((s) => s.setWebglOk);
+  const sceneEpoch = useUIStore((s) => s.sceneEpoch);
+  const reportSceneFailure = useUIStore((s) => s.reportSceneFailure);
 
-  if (!webglOk || viewMode === "diagram") {
+  if (webglCapability === "unavailable" || viewMode === "diagram") {
     return <DiagramBackdrop />;
   }
 
   return (
     <div className="fixed inset-0 z-0" aria-hidden="true">
-      <CanvasErrorBoundary onError={() => setWebglOk(false)}>
+      <CanvasErrorBoundary key={sceneEpoch} onError={reportSceneFailure}>
         <SceneRoot />
       </CanvasErrorBoundary>
     </div>

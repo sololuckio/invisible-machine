@@ -25,7 +25,17 @@ export function SettingsMenu() {
   const setQuality = useUIStore((s) => s.setQuality);
   const viewMode = useUIStore((s) => s.viewMode);
   const setViewMode = useUIStore((s) => s.setViewMode);
-  const webglOk = useUIStore((s) => s.webglOk);
+  const webglCapability = useUIStore((s) => s.webglCapability);
+  const sceneStatus = useUIStore((s) => s.sceneStatus);
+  const retry3D = useUIStore((s) => s.retry3D);
+
+  const webglBlocked = webglCapability === "unavailable";
+  const sceneFailed = !webglBlocked && sceneStatus === "failed";
+  const machineNote = webglBlocked
+    ? "WebGL isn't available on this device"
+    : sceneFailed
+      ? "The 3D scene could not start — select to retry"
+      : "Live spatial machine";
 
   useEffect(() => {
     if (!open) return;
@@ -61,28 +71,35 @@ export function SettingsMenu() {
         <div className="settings-panel panel" role="group" aria-label={UI_STRINGS.settings}>
           <p className="tech-label">Render quality</p>
           <div className="settings-options">
-            {QUALITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`settings-option${quality === opt.id ? " is-active" : ""}`}
-                aria-pressed={quality === opt.id}
-                onClick={() => setQuality(opt.id, "user")}
-              >
-                <span>
-                  {opt.label}
-                  {quality === opt.id && qualitySource === "auto" ? " · auto" : ""}
-                </span>
-                <span className="settings-note">{opt.note}</span>
-              </button>
-            ))}
+            {QUALITY_OPTIONS.map((opt) => {
+              const manual = quality === opt.id && qualitySource === "user";
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`settings-option${manual ? " is-active" : ""}`}
+                  aria-pressed={manual}
+                  onClick={() => setQuality(opt.id, "user")}
+                >
+                  <span>{opt.label}</span>
+                  <span className="settings-note">
+                    {manual ? `${opt.label} — manually selected` : opt.note}
+                  </span>
+                </button>
+              );
+            })}
             <button
               type="button"
-              className="settings-option"
+              className={`settings-option${qualitySource === "auto" ? " is-active" : ""}`}
+              aria-pressed={qualitySource === "auto"}
               onClick={() => setQuality(detectQuality(), "auto")}
             >
               <span>Auto-detect</span>
-              <span className="settings-note">Let the machine decide</span>
+              <span className="settings-note">
+                {qualitySource === "auto"
+                  ? `Currently ${quality[0].toUpperCase()}${quality.slice(1)}`
+                  : "Let the machine decide"}
+              </span>
             </button>
           </div>
 
@@ -92,13 +109,11 @@ export function SettingsMenu() {
               type="button"
               className={`settings-option${viewMode === "3d" ? " is-active" : ""}`}
               aria-pressed={viewMode === "3d"}
-              disabled={!webglOk}
-              onClick={() => setViewMode("3d")}
+              disabled={webglBlocked}
+              onClick={() => (sceneFailed ? retry3D() : setViewMode("3d"))}
             >
               <span>{UI_STRINGS.machineView}</span>
-              <span className="settings-note">
-                {webglOk ? "Full cinematic machine" : "WebGL unavailable on this device"}
-              </span>
+              <span className="settings-note">{machineNote}</span>
             </button>
             <button
               type="button"
