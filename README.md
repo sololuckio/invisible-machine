@@ -12,7 +12,19 @@ system against the managed one. Every number on the page is computed live by the
 simulation — no mock data, no video.
 
 Built as a portfolio showcase of creative development, systems thinking, simulation design,
-3D/graphics engineering, accessibility and performance work.
+3D/graphics engineering, accessibility and performance work. A concise technical case study
+lives at `/case-study` for visitors who want the engineering story without the journey.
+
+**Art direction.** The machine is precision infrastructure, not a neon demo: a disciplined
+material kit (structural graphite, machined shells, recessed panels, small self-lit details),
+one signal colour for flow, a warm tone for customer orders, a separate pale voice for the
+intelligence layer and locally escalating warnings. Stations share a chassis — hex plinth,
+utilisation ring, status lamp, physical queue rail — and each carries a distinct operational
+identity: an intake dish, a validation gate, a rotating payment verifier, stock cells that
+empty with real inventory, a fulfilment gantry sweeping at real tempo, dispatch chutes, a
+support array with an unresolved-issue reservoir, and stacked ledger discs. Orders are
+oriented carriers with eased travel; conveyors are dark rails with illuminated cores whose
+packet speed is the feeding station's live throughput.
 
 ## Technology
 
@@ -42,11 +54,15 @@ npm run format     # prettier
 
 ```
 app/                    Layout, page, global CSS, SEO assets (robots, sitemap,
-                        manifest, icon, generated Open Graph image)
+                        manifest, icon, generated Open Graph image) and the
+                        server-rendered /case-study recruiter page
 components/
   chapters/             The eight narrative chapters + scroll tracker
   experience/           The 3D machine (canvas, stations, particles, pathways,
-                        camera rig, surface split, AI scan effects)
+                        camera rig, surface split, AI scan effects), the shared
+                        material kit (materials.ts) and the queue-lane layout
+                        (queueLayout.ts) that stations, markers and particles
+                        all draw from
   fallback/             Live 2D SVG schematic (no-WebGL / diagram view)
   system/               Interactive consoles (controls, metrics, inspector,
                         AI panel, comparison ledger, scenario selector, Lab)
@@ -113,6 +129,12 @@ waits for it.
 - **No WebGL / 3D crash**: an error boundary demotes the experience to a live 2D SVG
   schematic driven by the same simulation, with keyboard-selectable stations. The same
   diagram is available to everyone via Settings → "Diagram view"
+- **View-mode state model**: device WebGL capability (`unknown/available/unavailable`),
+  the chosen view (`3d/diagram` + why: `user/auto/error`) and the scene's runtime status
+  (`idle/ready/failed`) are independent store fields. Choosing the diagram or unmounting
+  the canvas never rewrites capability, so 3D ↔ Diagram switching is freely reversible;
+  a runtime crash offers a real one-shot "Retry 3D" (an epoch counter remounts the error
+  boundary and canvas), and only genuine capability absence disables the 3D option
 - Status is never conveyed by colour alone (labels + values accompany every state)
 
 ## Editing content

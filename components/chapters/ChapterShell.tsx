@@ -59,9 +59,11 @@ export function ChapterHeading({
         {ch.kicker}
       </p>
       <Tag id={`${ch.anchor}-title`} className="chapter-title">
-        {ch.headline.map((line) => (
+        {ch.headline.map((line, i) => (
           <span key={line} className="chapter-title-line" data-reveal>
-            {line}
+            {/* Trailing space keeps copied text, screen readers and search
+                from reading adjacent lines as one word. */}
+            {i < ch.headline.length - 1 ? `${line} ` : line}
           </span>
         ))}
       </Tag>

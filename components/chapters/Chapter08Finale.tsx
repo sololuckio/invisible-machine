@@ -49,6 +49,9 @@ export function Chapter08Finale() {
                   {UI_STRINGS.contactMe}
                 </a>
               )}
+              <a className="btn btn-ghost" href="/case-study">
+                View Project Case Study
+              </a>
             </div>
 
             <ul className="finale-links" data-reveal>

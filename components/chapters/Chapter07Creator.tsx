@@ -26,6 +26,9 @@ export function Chapter07Creator() {
           <p className="creator-byline">
             {SITE.author.name} — {SITE.author.role}
           </p>
+          <a className="btn btn-ghost creator-case-link" href="/case-study">
+            View Project Case Study <IconArrowUpRight />
+          </a>
         </div>
 
         <div ref={modesRef} className="creator-modes">

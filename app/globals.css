@@ -1190,8 +1190,9 @@ input[type="range"]:disabled {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding-left: 7px;
+  padding: 3px 8px 3px 7px;
   border-left: 2px solid rgba(110, 231, 255, 0.35);
+  background: linear-gradient(90deg, rgba(8, 9, 11, 0.55), rgba(8, 9, 11, 0));
   font-family: var(--font-geist-mono), monospace;
   color: var(--color-dim);
   white-space: nowrap;
@@ -1202,6 +1203,7 @@ input[type="range"]:disabled {
 .node-label.is-active {
   color: var(--color-ink);
   border-left-color: var(--color-signal);
+  background: linear-gradient(90deg, rgba(8, 9, 11, 0.75), rgba(8, 9, 11, 0));
 }
 .node-label-tag {
   font-size: 8.5px;
@@ -1479,4 +1481,83 @@ input[type="range"]:disabled {
   .chapter-rail-progress {
     transition: none;
   }
+}
+
+/* ============================================================
+   Case study page (server-rendered recruiter path)
+   ============================================================ */
+
+.cs-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 90% 40% at 50% -10%, rgba(110, 231, 255, 0.06), transparent),
+    var(--color-bg);
+}
+.cs-inner {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 5.5rem 1.5rem 4rem;
+}
+.cs-title {
+  margin-top: 0.9rem;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--color-ink);
+}
+.cs-lede {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--color-dim);
+  max-width: 38rem;
+}
+.cs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1.6rem 0 2.8rem;
+}
+.cs-section {
+  border-top: 1px solid rgba(110, 231, 255, 0.12);
+  padding: 1.6rem 0 0.4rem;
+  margin-bottom: 1.4rem;
+}
+.cs-section h2 {
+  margin: 0.4rem 0 0.7rem;
+  font-size: 1.25rem;
+  font-weight: 650;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+.cs-body {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--color-dim);
+}
+.cs-footer {
+  border-top: 1px solid rgba(110, 231, 255, 0.12);
+  padding-top: 1.5rem;
+  margin-top: 2.4rem;
+}
+.cs-fine {
+  margin-top: 1.2rem;
+  font-size: 0.8rem;
+  color: var(--color-dim);
+  opacity: 0.8;
+}
+.cs-fine a {
+  color: var(--color-signal);
+  text-decoration: none;
+}
+.cs-fine a:hover {
+  text-decoration: underline;
+}
+.creator-case-link {
+  margin-top: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }

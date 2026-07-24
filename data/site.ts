@@ -11,7 +11,6 @@ export const SITE = {
   url: "https://im.downloadear.id",
   themeColor: "#08090b",
   author: {
-    // TODO: replace with the full display name you want on the site.
     name: "John C.",
     role: "Systems-minded full-stack developer",
     email: "jtcandra@gmail.com",
@@ -36,21 +35,19 @@ export const CONTACT_LINKS: ContactLink[] = [
   {
     id: "github",
     label: "GitHub",
-    href: "", // TODO: add your personal GitHub profile URL.
+    href: "https://github.com/sololuckio",
     description: "Source, experiments and build logs.",
   },
-  {
-    id: "linkedin",
-    label: "LinkedIn",
-    href: "", // TODO: add your LinkedIn profile URL.
-    description: "The professional layer.",
-  },
+  // No LinkedIn entry until a verified profile URL exists — the link list
+  // renders only real destinations, never placeholders.
 ];
 
-/** Links rendered in the nav. Anchors refer to chapter section ids. */
+/** Links rendered in the nav. Anchors refer to chapter section ids;
+ *  paths are real routes. */
 export const NAV_ITEMS = [
   { id: "experience", label: "Experience", href: "#ch-surface" },
   { id: "system", label: "System", href: "#ch-cta" },
   { id: "work", label: "Work", href: "#ch-creator" },
+  { id: "case-study", label: "Case Study", href: "/case-study" },
   { id: "contact", label: "Contact", href: "#ch-cta" },
 ] as const;

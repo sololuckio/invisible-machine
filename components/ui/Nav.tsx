@@ -60,7 +60,7 @@ export function Nav() {
               >
                 {item.label}
               </button>
-            ) : (
+            ) : item.href.startsWith("#") ? (
               <a
                 key={item.id}
                 className="nav-link"
@@ -70,6 +70,10 @@ export function Nav() {
                   scrollToAnchor(item.href.slice(1));
                 }}
               >
+                {item.label}
+              </a>
+            ) : (
+              <a key={item.id} className="nav-link" href={item.href}>
                 {item.label}
               </a>
             ),
