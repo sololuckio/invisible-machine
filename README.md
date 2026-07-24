@@ -163,7 +163,8 @@ or push the repository to Vercel/Netlify with default Next.js settings. Before d
 
 1. Set `SITE.url` in `data/site.ts` to the real domain (feeds canonical URL, sitemap, robots
    and Open Graph).
-2. Fill the TODO contact links in `data/site.ts`.
+2. Review the identity and contact links in `data/site.ts` — the link list renders only
+   entries with real URLs.
 
 ## Known limitations
 
