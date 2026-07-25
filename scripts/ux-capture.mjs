@@ -29,7 +29,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "ux-review");
+/** Output directory; override with UX_OUT to capture an after-pass alongside. */
+const OUT = path.join(ROOT, process.env.UX_OUT || "ux-review");
 const SKIP_BUILD = process.argv.includes("--skip-build");
 
 /** Software-GL flags: without these there is no WebGL on a headless box. */
