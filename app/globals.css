@@ -14,6 +14,12 @@
   --color-structure-faint: #161a1f;
   --color-ink: #e8eaed;
   --color-dim: #9ba1a6;
+  /* Tertiary text. Anything quieter than this stops meeting WCAG AA on our
+     backgrounds, so labels dim to this token rather than to an opacity. */
+  --color-faint: #7e848a;
+  /* A signal colour that is legible as *text*. --color-signal-deep is trim
+     and structure; at 2.02:1 it was never readable as a label. */
+  --color-signal-muted: #5aa3b8;
   --color-signal: #6ee7ff;
   --color-signal-deep: #1d4b5c;
   --color-warn: #ffb454;
@@ -667,26 +673,23 @@ input[type="range"]:disabled {
     border-color 0.25s ease,
     opacity 0.25s ease;
   color: var(--color-dim);
-  opacity: 0.55;
 }
 .stage-tag {
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.62rem;
   letter-spacing: 0.14em;
-  color: var(--color-structure);
+  color: var(--color-faint);
 }
 .stage-name {
   font-size: 0.95rem;
 }
 .stage-item.is-passed {
-  opacity: 0.85;
   color: var(--color-ink);
 }
 .stage-item.is-passed .stage-tag {
-  color: var(--color-signal-deep);
+  color: var(--color-signal-muted);
 }
 .stage-item.is-active {
-  opacity: 1;
   color: var(--color-hero);
   border-left-color: var(--color-hero);
 }
@@ -759,7 +762,6 @@ input[type="range"]:disabled {
 }
 .metrics-secondary .metric-cell dt {
   font-size: 0.53rem;
-  opacity: 0.92;
 }
 @media (max-width: 520px) {
   .metrics-primary {
@@ -1281,7 +1283,7 @@ input[type="range"]:disabled {
 .node-label-tag {
   font-size: 8.5px;
   letter-spacing: 0.16em;
-  opacity: 0.75;
+  color: var(--color-faint);
 }
 .node-label-name {
   font-size: 11.5px;
@@ -1306,7 +1308,7 @@ input[type="range"]:disabled {
 }
 .node-label-key {
   min-width: 30px;
-  opacity: 0.5;
+  color: var(--color-faint);
 }
 .node-label-val {
   font-variant-numeric: tabular-nums;
@@ -1911,8 +1913,7 @@ input[type="range"]:active::-webkit-slider-thumb {
 .cs-fine {
   margin-top: 1.2rem;
   font-size: 0.8rem;
-  color: var(--color-dim);
-  opacity: 0.8;
+  color: var(--color-faint);
 }
 .cs-fine a {
   color: var(--color-signal);
