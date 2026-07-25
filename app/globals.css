@@ -965,9 +965,46 @@ input[type="range"]:disabled {
   line-height: 1.6;
   margin-bottom: 1rem;
 }
+/* The one action chapter 5 exists to invite. It was a bordered ghost the
+   same weight as "Re-scan" beside it; it is now filled, larger, and the
+   loudest interactive element on the page while it is waiting to be used.
+   The breathing stops entirely under reduced motion — the fill and size
+   carry the emphasis on their own. */
 .ai-activate {
-  font-size: 0.82rem;
-  padding: 0.85rem 1.4rem;
+  width: 100%;
+  justify-content: center;
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+  padding: 1.05rem 1.6rem;
+  min-height: 3.4rem;
+  color: #04222b;
+  background: var(--color-signal);
+  border-color: var(--color-signal);
+  box-shadow: 0 0 0 0 rgba(110, 231, 255, 0.5);
+  animation: ai-activate-idle 3.4s ease-in-out infinite;
+}
+.ai-activate:hover:not(:disabled) {
+  color: #04222b;
+  background: #8eeeff;
+  border-color: #8eeeff;
+}
+.ai-activate svg {
+  width: 1.05em;
+  height: 1.05em;
+}
+@keyframes ai-activate-idle {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(110, 231, 255, 0.34);
+  }
+  55% {
+    box-shadow: 0 0 0 9px rgba(110, 231, 255, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-activate {
+    animation: none;
+  }
 }
 .ai-applied-note {
   margin-top: 0.9rem;
