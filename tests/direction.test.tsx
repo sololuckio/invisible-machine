@@ -5,7 +5,12 @@ import { ChapterHeading } from "@/components/chapters/ChapterShell";
 import { HERO_STOPS, heroAt } from "@/components/experience/curves";
 import { CHAPTERS } from "@/data/copy";
 import { CONTACT_LINKS, NAV_ITEMS, SITE } from "@/data/site";
-import { PROJECTS } from "@/data/projects";
+import {
+  CAPABILITIES,
+  CAPABILITY_CLUSTERS,
+  CAPABILITY_MAP,
+  PROJECTS,
+} from "@/data/projects";
 import { soundEngine } from "@/lib/audio";
 import { computeStage, type StageInput } from "@/lib/stage";
 import { useUIStore } from "@/store/uiStore";
@@ -210,3 +215,26 @@ describe("portfolio identity", () => {
     expect(NAV_ITEMS.some((n) => n.href === "/case-study")).toBe(true);
   });
 });
+describe("capability clusters", () => {
+  it("covers every operating mode exactly once", () => {
+    const clustered = CAPABILITY_CLUSTERS.flatMap((c) => c.capabilities);
+    expect(new Set(clustered).size).toBe(clustered.length);
+    expect([...clustered].sort()).toEqual(CAPABILITIES.map((c) => c.id).sort());
+  });
+
+  it("names a cluster for every id it claims", () => {
+    for (const cluster of CAPABILITY_CLUSTERS) {
+      expect(cluster.name.length).toBeGreaterThan(0);
+      for (const id of cluster.capabilities) {
+        expect(CAPABILITY_MAP[id], `unknown capability "${id}"`).toBeTruthy();
+      }
+    }
+  });
+
+  it("numbers the modes in the order they are read", () => {
+    const order = CAPABILITY_CLUSTERS.flatMap((c) => c.capabilities);
+    const modes = order.map((id) => CAPABILITY_MAP[id].mode);
+    expect(modes).toEqual([...modes].sort());
+  });
+});
+

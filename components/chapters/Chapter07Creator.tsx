@@ -2,7 +2,7 @@
 
 import { IconArrowUpRight } from "@/components/ui/icons";
 import { CHAPTERS } from "@/data/copy";
-import { CAPABILITIES, PROJECTS } from "@/data/projects";
+import { CAPABILITY_CLUSTERS, CAPABILITY_MAP, PROJECTS } from "@/data/projects";
 import { SITE } from "@/data/site";
 import { useReveal } from "@/hooks/useReveal";
 import { ChapterHeading, ChapterSection } from "./ChapterShell";
@@ -35,15 +35,28 @@ export function Chapter07Creator() {
           <p className="tech-label" data-reveal>
             Operating modes of the same machine
           </p>
-          <ul className="modes-grid">
-            {CAPABILITIES.map((cap) => (
-              <li key={cap.id} className="mode-card" data-reveal>
-                <span className="tech-label">{cap.mode}</span>
-                <h3>{cap.name}</h3>
-                <p>{cap.description}</p>
-              </li>
+          <div className="mode-clusters">
+            {CAPABILITY_CLUSTERS.map((cluster) => (
+              <section key={cluster.id} className="mode-cluster" data-reveal>
+                <header className="mode-cluster-head">
+                  <h3 className="mode-cluster-name">{cluster.name}</h3>
+                  <p className="mode-cluster-summary">{cluster.summary}</p>
+                </header>
+                <ul className="modes-grid">
+                  {cluster.capabilities.map((id) => {
+                    const cap = CAPABILITY_MAP[id];
+                    return (
+                      <li key={cap.id} className="mode-card">
+                        <span className="tech-label">{cap.mode}</span>
+                        <h4>{cap.name}</h4>
+                        <p>{cap.description}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </div>
 
         <div ref={workRef} className="creator-work">

@@ -2222,3 +2222,57 @@ input[type="range"]:active::-webkit-slider-thumb {
 .chip {
   min-height: 2.35rem;
 }
+
+/* ============================================================
+   Operating-mode clusters (CH.07)
+   Seven cards in a flat grid read as a skills list. Three named
+   groups read as what the machine does — the cluster is the unit,
+   the cards inside it are its parts.
+   ============================================================ */
+
+.mode-clusters {
+  display: grid;
+  gap: 1.6rem;
+  margin-top: 0.9rem;
+}
+@media (min-width: 900px) {
+  .mode-clusters {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2rem;
+    align-items: start;
+  }
+}
+.mode-cluster {
+  border-top: 2px solid var(--color-signal-muted);
+  padding-top: 0.85rem;
+}
+.mode-cluster-head {
+  margin-bottom: 0.85rem;
+}
+.mode-cluster-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-ink);
+}
+.mode-cluster-summary {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--color-faint);
+}
+.mode-cluster .modes-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 560px) and (max-width: 899px) {
+  .mode-cluster .modes-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.mode-cluster .mode-card h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0.3rem;
+  color: var(--color-ink);
+}
