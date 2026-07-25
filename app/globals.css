@@ -1990,8 +1990,8 @@ input[type="range"]:active::-webkit-slider-thumb {
 .scenario-chip {
   /* 44px minimum hit area without a 44px-tall visual chip. */
   position: relative;
-  padding: 7px 12px;
-  min-height: 34px;
+  padding: 8px 12px;
+  min-height: 36px;
   border: 1px solid var(--color-structure);
   background: transparent;
   color: var(--color-dim);
@@ -2004,13 +2004,6 @@ input[type="range"]:active::-webkit-slider-thumb {
     color 0.16s ease,
     border-color 0.16s ease,
     background 0.16s ease;
-}
-.scenario-chip::after {
-  content: "";
-  position: absolute;
-  inset: 50% 0 auto 0;
-  height: 44px;
-  transform: translateY(-50%);
 }
 .scenario-chip:hover:not(:disabled) {
   color: var(--color-ink);
@@ -2154,4 +2147,54 @@ input[type="range"]:active::-webkit-slider-thumb {
   .sticky-readout-item.tone-ok .sticky-readout-val {
     color: var(--color-success);
   }
+}
+
+/* ============================================================
+   Touch targets
+   WCAG 2.5.8 / platform guidance both want 44px. These controls
+   are deliberately small as marks — a 9px chapter dot should stay
+   a 9px dot — so the hit area is grown underneath them with a
+   pseudo-element instead of inflating the visual.
+   ============================================================ */
+
+.chapter-dot,
+.chip,
+.settings-option,
+.scenario-chip {
+  position: relative;
+}
+.chapter-dot::before,
+.chip::before,
+.settings-option::before,
+.scenario-chip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  min-height: 44px;
+  height: 100%;
+  transform: translateY(-50%);
+  /* Sits behind the label, never over it, and is invisible either way. */
+  z-index: -1;
+}
+/* The chapter rail's dots are 9px marks in a narrow column, so they need
+   width as well as height before a thumb can land on one. */
+.chapter-dot::before {
+  left: -14px;
+  right: -14px;
+}
+.chip::before,
+.scenario-chip::before {
+  left: -2px;
+  right: -2px;
+}
+/* Station rows in the inspector are full-width already; they only lack
+   height. */
+.settings-option {
+  min-height: 44px;
+  align-items: center;
+}
+.chip {
+  min-height: 2.35rem;
 }
