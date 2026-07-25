@@ -10,6 +10,7 @@ import { useChapterDirector } from "@/hooks/useChapterDirector";
 import { useEnvironmentSetup } from "@/hooks/useEnvironmentSetup";
 import { useSimulationLoop } from "@/hooks/useSimulationLoop";
 import { useSoundDirector } from "@/hooks/useSoundDirector";
+import { useStageDirector } from "@/hooks/useStageDirector";
 
 /**
  * Mounts the experience's runtime: environment probes, the simulation clock,
@@ -19,6 +20,7 @@ import { useSoundDirector } from "@/hooks/useSoundDirector";
 export function ExperienceRoot() {
   useEnvironmentSetup();
   useSimulationLoop();
+  useStageDirector();
   useChapterDirector();
   useSoundDirector();
 

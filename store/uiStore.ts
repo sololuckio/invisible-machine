@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { soundEngine } from "@/lib/audio";
 import type { Quality } from "@/lib/quality";
+import type { StageBeat } from "@/lib/stage";
 import { STORAGE_KEYS, writeSession } from "@/lib/storage";
 import type { NodeId } from "@/simulation/types";
 
@@ -20,6 +21,22 @@ interface UIStore {
   /** 1..8 — index of the chapter currently in view. */
   activeChapter: number;
   setActiveChapter: (n: number) => void;
+
+  /**
+   * Current narrative beat, published by the stage director. Only changes at
+   * beat boundaries, so subscribing to it is cheap.
+   */
+  stageBeat: StageBeat;
+  setStageBeat: (beat: StageBeat) => void;
+  /** True while the beat belongs to the story rather than to the visitor. */
+  cinematic: boolean;
+  setCinematic: (v: boolean) => void;
+  /**
+   * Chapter whose console the visitor has taken hold of. Cinematic mode never
+   * fades instrumentation out from under someone who is using it.
+   */
+  engagedChapter: number | null;
+  engageConsole: (chapter: number) => void;
 
   /** True once the surface split has begun — the machine below is unveiled. */
   surfaceOpen: boolean;
@@ -81,7 +98,15 @@ export const useUIStore = create<UIStore>()((set) => ({
   finishBoot: () => set({ bootDone: true }),
 
   activeChapter: 1,
-  setActiveChapter: (n) => set({ activeChapter: n }),
+  // Moving to a new chapter hands the stage back to the story.
+  setActiveChapter: (n) => set({ activeChapter: n, engagedChapter: null }),
+
+  stageBeat: "stillness",
+  setStageBeat: (stageBeat) => set({ stageBeat }),
+  cinematic: false,
+  setCinematic: (cinematic) => set({ cinematic }),
+  engagedChapter: null,
+  engageConsole: (chapter) => set({ engagedChapter: chapter }),
 
   surfaceOpen: false,
   setSurfaceOpen: (surfaceOpen) => set({ surfaceOpen }),

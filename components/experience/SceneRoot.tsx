@@ -1,9 +1,12 @@
 "use client";
 
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
+import type * as THREE from "three";
+import { damp } from "@/lib/motion";
 import { PALETTE } from "@/lib/palette";
 import { QUALITY_PROFILES } from "@/lib/quality";
+import { scrollState } from "@/lib/scrollState";
 import { NODE_DEFS } from "@/simulation/nodes";
 import { useUIStore } from "@/store/uiStore";
 import { CameraRig } from "./CameraRig";
@@ -37,6 +40,44 @@ function ContextGuard() {
   return null;
 }
 
+/** Fog depth per chapter — atmosphere as composition, not as an effect. */
+const DEPTH: { at: number; near: number; far: number }[] = [
+  // Chapter 1: the street reads shallow; whatever is below is only implied.
+  { at: 2, near: 12, far: 34 },
+  // Chapter 2: descending through haze — the machine arrives as silhouette.
+  { at: 3, near: 10, far: 32 },
+  // Working chapters: clear enough to read instruments.
+  { at: 6, near: 14, far: 48 },
+  // Chapter 6–7: wide, air between the layers.
+  { at: 7.5, near: 18, far: 64 },
+  // The closure: depth returns, the machine recedes into it.
+  { at: 9, near: 12, far: 38 },
+];
+
+/**
+ * Atmospheric perspective, animated per chapter. Fog near/far are plain
+ * uniforms, so this costs nothing and buys layered depth: foreground
+ * architecture, midground machine, background shaft.
+ */
+function DepthDirector() {
+  const scene = useThree((s) => s.scene);
+  useFrame((_, delta) => {
+    const fog = scene.fog as THREE.Fog | null;
+    if (!fog) return;
+    if (useUIStore.getState().reducedMotion) {
+      fog.near = 14;
+      fog.far = 48;
+      return;
+    }
+    const cf = scrollState.chapterFloat;
+    const key = DEPTH.find((d) => cf < d.at) ?? DEPTH[DEPTH.length - 1];
+    const k = damp(1.1, delta);
+    fog.near += (key.near - fog.near) * k;
+    fog.far += (key.far - fog.far) * k;
+  });
+  return null;
+}
+
 /**
  * The full 3D machine. Loaded lazily so the opening copy never waits for
  * the three.js bundle; quality tier controls resolution and particle load.
@@ -66,6 +107,7 @@ export default function SceneRoot() {
       }}
     >
       <ContextGuard />
+      <DepthDirector />
       <color attach="background" args={[PALETTE.bg]} />
       <fog attach="fog" args={[PALETTE.bg, 14, 48]} />
 

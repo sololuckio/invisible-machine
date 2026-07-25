@@ -3,9 +3,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { smooth01 } from "@/lib/motion";
+import { clamp01, smooth01 } from "@/lib/motion";
 import { PALETTE } from "@/lib/palette";
 import { scrollState } from "@/lib/scrollState";
+import { stageState } from "@/lib/stage";
 import { NODE_MAP } from "@/simulation/nodes";
 import { useSimStore } from "@/store/simStore";
 import { useUIStore } from "@/store/uiStore";
@@ -90,7 +91,13 @@ export function OrderParticles({ pool }: { pool: number }) {
     const simStore = useSimStore.getState();
     const sim = simStore.sim;
     const reduced = useUIStore.getState().reducedMotion;
-    const speedMul = reduced ? 0.35 : 1;
+    // Traffic runs at the tempo of the current beat — compressed while the
+    // constraint locks, unhurried during the opening, brisk under pressure.
+    const speedMul = (reduced ? 0.35 : 1) * (0.45 + stageState.energy * 0.8);
+    // A well-run machine moves work in step: when health is high the spread of
+    // individual speeds and waits narrows, and the flow reads as coordinated
+    // rather than merely less red.
+    const coord = clamp01((sim.metrics.systemHealth - 62) / 28);
     const cf = scrollState.chapterFloat;
     // While the hero order carries Chapter 2, ambient traffic stays sparse.
     const heroWindow = cf >= 1.78 && cf < 3.05;
@@ -123,7 +130,7 @@ export function OrderParticles({ pool }: { pool: number }) {
         p.mode = Mode.Moving;
         p.seg = 0;
         p.t = p.j1 * 0.1;
-        p.speed = 2.5 + p.j2 * 1.2;
+        p.speed = 2.5 + coord * 0.5 + p.j2 * 1.2 * (1 - coord * 0.75);
       } else if (p.mode !== Mode.Idle && active > targetActive * 1.4 && p.seg === 0 && p.t < 0.1) {
         // Demand collapsed — quietly retire surplus particles at the inlet.
         p.mode = Mode.Idle;
@@ -142,7 +149,7 @@ export function OrderParticles({ pool }: { pool: number }) {
           p.mode = Mode.Queued;
           p.waitMax =
             THREE.MathUtils.clamp(node.queue / Math.max(node.throughput, 2), 0, 6) * 0.35 +
-            p.j2 * 0.15;
+            p.j2 * 0.15 * (1 - coord * 0.7);
           p.wait = p.waitMax;
           p.angle = p.j1 * Math.PI * 2;
           p.radius = 0.62 + p.j2 * 0.28;

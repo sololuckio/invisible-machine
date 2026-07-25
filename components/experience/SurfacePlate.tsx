@@ -1,21 +1,29 @@
 "use client";
 
 import { Edges, Line } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { easeInOut, smooth01 } from "@/lib/motion";
+import { clamp01, easeInOut, settle, smooth01, span } from "@/lib/motion";
 import { PALETTE } from "@/lib/palette";
 import { scrollState } from "@/lib/scrollState";
+import { SURFACE_STAGES } from "@/lib/stage";
 import { useUIStore } from "@/store/uiStore";
 import { GEO, structuralDarkMat } from "./materials";
 
 /**
- * Chapter 1's signature moment, staged in phases: the calm storefront slab;
- * a faint instability along the coming seam; ignition; mechanical separation
- * with the halves sinking slightly under their own weight; light spilling up
- * out of the cut; and a column of slow motes rising where the machine
- * breathes out. In Chapter 8 the halves glide back together, closing the loop.
+ * Chapter 1's signature moment, staged as six deliberate beats:
+ *
+ *   A  stillness      the storefront reads as complete and calm
+ *   B  instability    a fine tension runs the coming seam; light answers locally
+ *   C  ignition       energy travels the seam with direction, end to end
+ *   D  release        the halves load, break free, and open with mass
+ *   E  depth          light spills up, dust lifts, the shaft reads by silhouette
+ *   F  settle         the plates take up their stops and stop moving
+ *
+ * Chapter 8 plays the same instrument in reverse without being a reversed
+ * animation: the halves close under their own weight, meet with a settle, and
+ * leave the seam faintly lit — the machine is still down there.
  */
 
 /** Procedural top texture: fine technical grid on brushed near-black. */
@@ -69,20 +77,56 @@ function makeWellTexture(): THREE.CanvasTexture | null {
 }
 
 const MOTES = 22;
+/** Seam segments — enough that ignition reads as travel, not as a switch. */
+const SEAM_SEGMENTS = 26;
+const SEAM_HALF_LENGTH = 5.45;
+/** Length of one seam segment, with a hairline gap so the run reads as built. */
+const SEAM_SEG_LENGTH = ((SEAM_HALF_LENGTH * 2) / SEAM_SEGMENTS) * 0.82;
+/** Where the halves come to rest when fully open (narrow screens open less). */
+const SEPARATION = 5.2;
+const SEPARATION_NARROW = 3.5;
+/** Chapter position where the epilogue starts closing the surface. */
+const CLOSE_FROM = 7.55;
+const CLOSE_TO = 8.45;
+
+/**
+ * Separation travel with mass: the halves press together under load, break
+ * free, accelerate through the middle of the move and settle onto their stops.
+ */
+function separationProfile(k: number): number {
+  if (k <= 0) return 0;
+  const load = -0.055 * Math.sin(Math.PI * clamp01(k / 0.14));
+  // Double-eased: flat at both ends, quick through the middle — heavy things.
+  const main = easeInOut(easeInOut(clamp01((k - 0.08) / 0.92)));
+  const arrive = k > 0.9 ? settle((k - 0.9) * 1.6, 0.05, 7, 26) : 0;
+  return Math.max(0, main + load + arrive);
+}
+
+/** The same weight, closing: momentum in, contact, one small settle. */
+function closureProfile(k: number): number {
+  const main = 1 - easeInOut(easeInOut(clamp01(k)));
+  const impact = k > 0.88 ? settle((k - 0.88) * 2.2, 0.05, 8, 30) : 0;
+  return Math.max(0, main + impact);
+}
 
 export function SurfacePlate() {
   const leftRef = useRef<THREE.Group>(null);
   const rightRef = useRef<THREE.Group>(null);
   const tableauRef = useRef<THREE.Group>(null);
-  const seamRef = useRef<THREE.Mesh>(null);
-  const seamMat = useRef<THREE.MeshBasicMaterial>(null);
+  const seamRef = useRef<THREE.InstancedMesh>(null);
+  const seamLight = useRef<THREE.PointLight>(null);
   const productRef = useRef<THREE.Mesh>(null);
   const cutLeftMat = useRef<THREE.MeshBasicMaterial>(null);
   const cutRightMat = useRef<THREE.MeshBasicMaterial>(null);
   const wellRef = useRef<THREE.Group>(null);
   const wellMats = useRef<(THREE.MeshBasicMaterial | null)[]>([null, null]);
   const motesRef = useRef<THREE.InstancedMesh>(null);
+
+  const size = useThree((s) => s.size);
   const moteDummy = useMemo(() => new THREE.Object3D(), []);
+  const seamDummy = useMemo(() => new THREE.Object3D(), []);
+  const seamColor = useMemo(() => new THREE.Color(), []);
+  const cSignal = useMemo(() => new THREE.Color(PALETTE.signal), []);
 
   const topTexture = useMemo(makeSurfaceTexture, []);
   const wellTexture = useMemo(makeWellTexture, []);
@@ -98,46 +142,66 @@ export function SurfacePlate() {
   );
 
   useFrame((state) => {
-    const reduced = useUIStore.getState().reducedMotion;
-    const quality = useUIStore.getState().quality;
+    const ui = useUIStore.getState();
+    const reduced = ui.reducedMotion;
+    const quality = ui.quality;
     const cf = scrollState.chapterFloat;
     const t = state.clock.elapsedTime;
+    // Portrait viewports open a shorter distance so the shaft mouth — not the
+    // empty street either side of it — stays the subject, and the seam is
+    // drawn heavier so it survives being a third of the width.
+    const narrow = size.width / Math.max(1, size.height) < 0.9;
+    const separation = narrow ? SEPARATION_NARROW : SEPARATION;
+    const seamWeight = narrow ? 1.9 : 1;
 
-    // How far the surface is open: scripted by chapter position.
+    // ---- stage progress -------------------------------------------------
+    const s = scrollState.surface;
+    const closing = cf >= CLOSE_FROM;
+    const closeK = closing ? span(cf, CLOSE_FROM, CLOSE_TO) : 0;
+
+    // Tension builds through stillness and instability; ignition travels the
+    // seam; release is the mechanical move itself.
+    const tension = reduced ? 0 : span(s, 0.02, SURFACE_STAGES.ignition);
+    const ignite = reduced ? 1 : span(s, SURFACE_STAGES.ignition - 0.02, SURFACE_STAGES.release + 0.08);
+    const release = span(s, SURFACE_STAGES.release, SURFACE_STAGES.settled);
+
     let open: number;
     if (reduced) {
-      open = 1;
+      open = closing ? 1 - closeK * 0.98 : 1;
     } else if (cf < 2) {
-      open = easeInOut(THREE.MathUtils.clamp(scrollState.surface * 1.25, 0, 1));
-    } else if (cf < 7.45) {
+      open = separationProfile(release);
+    } else if (!closing) {
       open = 1;
     } else {
-      // Epilogue: the halves glide back, leaving only the glowing seam.
-      open = 1 - THREE.MathUtils.clamp((cf - 7.45) / 0.5, 0, 0.9);
+      open = closureProfile(closeK);
     }
 
-    // Halves rest exactly touching (half-width 4.25), separate mechanically,
-    // and sink a breath under their own weight as they release.
-    const shift = 4.25 + open * 5.2;
-    const tilt = open * 0.065;
-    const sink = smooth01(open * 2.2) * 0.16;
+    // ---- the halves -----------------------------------------------------
+    const shift = 4.25 + open * separation;
+    // Structural response: the plates roll a little as they take the load,
+    // then level out once they are carrying it.
+    const roll = open * 0.05 + (!closing && release > 0 && release < 0.55 ? Math.sin(release * Math.PI * 1.8) * 0.014 : 0);
+    const sink =
+      smooth01(open * 2.2) * 0.16 +
+      (!closing && release > 0.9 ? settle((release - 0.9) * 1.6, 0.035, 8, 24) : 0) +
+      (closing && closeK > 0.88 ? settle((closeK - 0.88) * 2.2, 0.03, 8, 30) : 0);
     if (leftRef.current) {
       leftRef.current.position.x = -shift;
       leftRef.current.position.y = -sink;
-      leftRef.current.rotation.z = tilt;
+      leftRef.current.rotation.z = roll;
     }
     if (rightRef.current) {
       rightRef.current.position.x = shift;
       rightRef.current.position.y = -sink;
-      rightRef.current.rotation.z = -tilt;
+      rightRef.current.rotation.z = -roll;
     }
 
-    // The "simple business" tableau dissolves as the truth opens up.
+    // ---- the tableau: a product, a customer, a transaction ---------------
     if (tableauRef.current) {
       const vis = reduced
         ? THREE.MathUtils.clamp(1.6 - cf * 0.4, 0, 1)
         : THREE.MathUtils.clamp(1 - open * 1.9, 0, 1);
-      tableauRef.current.visible = vis > 0.01;
+      tableauRef.current.visible = vis > 0.01 && !closing;
       tableauRef.current.scale.setScalar(Math.max(0.001, 0.7 + vis * 0.3));
       tableauRef.current.traverse((o) => {
         const mesh = o as THREE.Mesh;
@@ -148,53 +212,98 @@ export function SurfacePlate() {
       });
     }
     if (productRef.current && !reduced) {
-      productRef.current.rotation.y = t * 0.35;
+      // Stage A is stillness: the one moving thing barely moves.
+      productRef.current.rotation.y = t * 0.14;
     }
 
-    // Seam: faint instability first, then ignition, then it hands the stage
-    // to the opening itself.
-    if (seamMat.current && seamRef.current) {
-      const instability =
-        scrollState.surface > 0.015 && open < 0.02 && !reduced
-          ? (0.5 + 0.5 * Math.sin(t * 11)) * smooth01(scrollState.surface / 0.06) * 0.35
-          : 0;
-      const ignite = THREE.MathUtils.clamp(open / 0.1, 0, 1);
-      const fade = 1 - THREE.MathUtils.smoothstep(open, 0.25, 0.65);
-      seamMat.current.opacity = reduced ? 0 : Math.max(instability, ignite * fade * 0.9);
-      seamRef.current.scale.x = 1 + open * 2.2;
+    // ---- the seam: instability, then directional ignition ----------------
+    if (seamRef.current) {
+      const fade = 1 - THREE.MathUtils.smoothstep(open, 0.22, 0.6);
+      // Closing relights it from both ends and leaves a faint filament.
+      const closeGlow = closing ? 0.28 + smooth01(closeK * 1.4) * 0.5 : 0;
+      const visible = !reduced && (closeGlow > 0 || (cf < 2.4 && (tension > 0 || ignite > 0)));
+      seamRef.current.visible = visible;
+      if (visible) {
+        // The ignition front runs the length of the cut, far end to near.
+        const front = ignite * 1.18;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 9);
+        for (let k = 0; k < SEAM_SEGMENTS; k++) {
+          const zNorm = k / (SEAM_SEGMENTS - 1);
+          let level: number;
+          if (closing) {
+            // Symmetric, not identical: the filament re-lights from the middle.
+            const mid = Math.abs(zNorm - 0.5) * 2;
+            level = closeGlow * 0.5 * (0.55 + 0.45 * (1 - mid)) * (0.85 + shimmer * 0.15);
+          } else {
+            const lead = front - zNorm;
+            // Bright at the travelling front, settling to a filament behind it.
+            const passed = lead > 0 ? 0.14 + Math.exp(-lead * 5) * 0.5 : Math.max(0, 1 + lead * 22) * 0.5;
+            // Before ignition the seam is only a rumour: a faint unstable line.
+            const unstable = tension * (0.02 + 0.035 * shimmer) * (1 - ignite);
+            level = Math.max(unstable, passed * ignite) * fade;
+          }
+          const z = (zNorm - 0.5) * SEAM_HALF_LENGTH * 2;
+          seamDummy.position.set(0, 0.29, z);
+          const width = 0.035 * seamWeight * (1 + open * 1.6);
+          seamDummy.scale.set(level > 0.001 ? width : 0.0001, 0.05, SEAM_SEG_LENGTH);
+          seamDummy.updateMatrix();
+          seamRef.current.setMatrixAt(k, seamDummy.matrix);
+          seamColor.copy(cSignal).multiplyScalar(THREE.MathUtils.clamp(level, 0, 1.4));
+          seamRef.current.setColorAt(k, seamColor);
+        }
+        seamRef.current.instanceMatrix.needsUpdate = true;
+        if (seamRef.current.instanceColor) seamRef.current.instanceColor.needsUpdate = true;
+      }
     }
 
-    // Freshly cut faces glow with the light from below.
-    const cutGlow = smooth01(open * 1.6) * (1 - smooth01((open - 0.75) * 4)) * 0.85;
+    // Local lighting response — the surface itself is lit by what is beneath.
+    if (seamLight.current) {
+      const igniteLight = !reduced && cf < 2.4 ? (tension * 0.25 + ignite * 1) * (1 - smooth01((open - 0.4) * 2)) : 0;
+      const closeLight = closing ? smooth01(closeK * 1.3) * 0.7 * (1 - closeK * 0.4) : 0;
+      seamLight.current.intensity = Math.max(igniteLight, closeLight) * 9;
+    }
+
+    // ---- freshly cut faces catch the light from below --------------------
+    const cutGlow = closing
+      ? smooth01(closeK * 1.6) * (1 - smooth01((closeK - 0.8) * 4)) * 0.7
+      : smooth01(open * 1.6) * (1 - smooth01((open - 0.75) * 4)) * 0.85;
     if (cutLeftMat.current) cutLeftMat.current.opacity = cutGlow;
     if (cutRightMat.current) cutRightMat.current.opacity = cutGlow;
 
-    // The light well breathes out of the opening, strongest mid-split,
-    // then hands the stage to the machine below.
+    // ---- the light well breathing out of the opening ---------------------
     const wellStrength = reduced
       ? 0
-      : smooth01(open * 1.8) * (1 - smooth01((open - 0.55) * 2.4)) * 0.8;
+      : closing
+        ? // Operational light still visible below, right up until contact.
+          smooth01(closeK * 2.6) * (1 - smooth01((closeK - 0.62) * 3.2)) * 0.34
+        : smooth01(open * 1.8) * (1 - smooth01((open - 0.55) * 2.4)) * 0.4;
     if (wellRef.current) wellRef.current.visible = wellStrength > 0.01;
     for (const m of wellMats.current) {
       if (m) m.opacity = wellStrength;
     }
 
-    // Motes rising in the light column.
+    // ---- dust in the light column ----------------------------------------
     if (motesRef.current) {
-      const show = !reduced && quality !== "reduced" && open > 0.2 && cf < 2.6;
+      const show =
+        !reduced &&
+        quality !== "reduced" &&
+        open > 0.12 &&
+        (closing ? closeK < 0.8 : cf < 2.6);
       motesRef.current.visible = show;
       if (show) {
-        const width = open * 5.2;
+        const width = open * separation;
         for (let k = 0; k < MOTES; k++) {
           const seed = k * 0.618033;
           const cycle = (t * (0.055 + (seed % 0.05)) + seed) % 1;
+          // Opening lifts the dust; closing lets it fall back down.
+          const rise = closing ? 4.6 - cycle * 4.6 : cycle * 4.6;
           moteDummy.position.set(
             (fractOf(seed * 7.13) - 0.5) * width * 1.6,
-            -0.4 + cycle * 4.6,
+            -0.4 + rise,
             (fractOf(seed * 3.77) - 0.5) * 8,
           );
-          const s = 0.02 + (1 - cycle) * 0.025;
-          moteDummy.scale.setScalar(s * smooth01(open * 3));
+          const sz = 0.02 + (1 - cycle) * 0.025;
+          moteDummy.scale.setScalar(sz * smooth01(open * 3));
           moteDummy.rotation.set(0, seed * 6.28 + t * 0.2, 0);
           moteDummy.updateMatrix();
           motesRef.current.setMatrixAt(k, moteDummy.matrix);
@@ -238,17 +347,22 @@ export function SurfacePlate() {
         );
       })}
 
-      {/* The glowing seam where the machine first shows through */}
-      <mesh ref={seamRef} position={[0, 0.29, 0]}>
-        <boxGeometry args={[0.06, 0.05, 10.9]} />
+      {/* The seam, in segments, so ignition can travel instead of switching on. */}
+      <instancedMesh ref={seamRef} args={[GEO.box, undefined, SEAM_SEGMENTS]} visible={false} frustumCulled={false}>
         <meshBasicMaterial
-          ref={seamMat}
           color={PALETTE.signal}
           transparent
-          opacity={0}
+          opacity={0.6}
           toneMapped={false}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
         />
-      </mesh>
+      </instancedMesh>
+
+      {/* The surface's own light source: whatever is happening underneath. It
+          sits just below the cut so it grazes the plate edges rather than
+          washing their faces. */}
+      <pointLight ref={seamLight} position={[0, -0.15, 0]} intensity={0} distance={13} color={PALETTE.signal} />
 
       {/* Light spilling up out of the cut — two crossed gradient planes. */}
       <group ref={wellRef} visible={false}>
@@ -258,7 +372,7 @@ export function SurfacePlate() {
             position={[0, 2.0, 0]}
             rotation={[0, k === 0 ? 0 : Math.PI / 2, 0]}
           >
-            <planeGeometry args={[k === 0 ? 9.5 : 10.4, 4.6]} />
+            <planeGeometry args={[k === 0 ? 7.2 : 8.0, 3.4]} />
             <meshBasicMaterial
               ref={(m) => {
                 wellMats.current[k] = m;
@@ -276,7 +390,7 @@ export function SurfacePlate() {
         ))}
       </group>
 
-      {/* Motes drifting up in the light column. */}
+      {/* Motes drifting in the light column. */}
       <instancedMesh ref={motesRef} args={[GEO.octa, undefined, MOTES]} visible={false} frustumCulled={false}>
         <meshBasicMaterial color={PALETTE.signal} transparent opacity={0.5} toneMapped={false} depthWrite={false} />
       </instancedMesh>

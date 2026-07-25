@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { fmtInt } from "@/lib/format";
 import { TIMING } from "@/lib/motion";
 import { PALETTE, STATUS_COLORS } from "@/lib/palette";
+import { stageState } from "@/lib/stage";
 import type { NodeDef } from "@/simulation/types";
 import { useSimStore } from "@/store/simStore";
 import { useUIStore } from "@/store/uiStore";
@@ -298,10 +299,11 @@ const BODIES: Record<string, (p: { r: StationRefs }) => React.JSX.Element> = {
 export function StationNode({ def, revealed }: { def: NodeDef; revealed: boolean }) {
   const selected = useUIStore((s) => s.selectedNode === def.id);
   const selectNode = useUIStore((s) => s.selectNode);
-  // Labels join once the visitor is working with the machine — during the
-  // Chapter 2 descent the right-hand manifest already names each station.
+  // Labels belong to control mode: they join once the visitor is working with
+  // the machine, and step aside during cinematic beats so the machine itself
+  // tells the story. (Chapter 2's manifest already names every station.)
   const labelled = useUIStore(
-    (s) => s.activeChapter >= 3 || s.labOpen || s.reducedMotion,
+    (s) => s.labOpen || s.reducedMotion || (s.activeChapter >= 3 && !s.cinematic),
   );
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
@@ -364,20 +366,30 @@ export function StationNode({ def, revealed }: { def: NodeDef; revealed: boolean
         fxBus.scanY !== null
           ? Math.max(0, 1 - Math.abs(fxBus.scanY - def.position[1]) / 1.3) * 1.4
           : 0;
-      accentMat.current.emissiveIntensity = 0.4 + activity * 0.9 + flicker + breathe + scanGlow;
+      // When the story is pointing at one station — the locked constraint, the
+      // station handling the hero order, the one just restructured — everything
+      // else steps back so the emphasis cannot be misread. Status colour and
+      // the lamp are never dimmed: state is still legible.
+      const focus = fxBus.focusNode;
+      const stepBack = focus !== null && focus !== def.id ? 0.45 : 1;
+      const emphasis = focus === def.id ? 0.55 : 0;
+      accentMat.current.emissiveIntensity =
+        (0.4 + activity * 0.9 + flicker + breathe + scanGlow) * stepBack + emphasis;
     }
     if (lampMat.current) lampMat.current.color.copy(statusColor);
 
-    // Variant mechanisms — running exactly at the machine's real tempo.
+    // Variant mechanisms — running at the machine's real tempo, paced by the
+    // beat: they compress with the constraint and breathe in the epilogue.
     if (mechRef.current && !reduced) {
+      const pace = 0.45 + stageState.energy * 0.75;
       if (def.id === "payment") {
-        mechRef.current.rotation.z += delta * (0.25 + activity * 2.2);
+        mechRef.current.rotation.z += delta * (0.25 + activity * 2.2) * pace;
       } else if (def.id === "fulfilment") {
-        mechRef.current.position.x = Math.sin(t * (0.5 + activity * 3.2)) * 0.62;
+        mechRef.current.position.x = Math.sin(t * (0.5 + activity * 3.2) * pace) * 0.62;
       } else if (def.id === "support") {
-        mechRef.current.rotation.y += delta * (0.15 + activity * 1.1);
+        mechRef.current.rotation.y += delta * (0.15 + activity * 1.1) * pace;
       } else if (def.id === "revenue") {
-        mechRef.current.rotation.y += delta * 0.12;
+        mechRef.current.rotation.y += delta * 0.12 * pace;
       }
     }
 

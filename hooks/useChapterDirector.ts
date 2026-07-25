@@ -1,49 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSimStore } from "@/store/simStore";
 import { useUIStore } from "@/store/uiStore";
 
 /**
- * The guided narrative's stage direction: as the visitor scrolls into each
- * chapter, demand is choreographed so the story beats land — a trickle for
- * the first order, pressure for the bottleneck, calm for the epilogue.
+ * The guided narrative's stage direction: demand is choreographed to the
+ * current beat so the story lands as cause and effect rather than as a switch
+ * being flipped. Chapter 4 in particular escalates — a stable baseline, then
+ * rising demand, then real compression — so the constraint is watched forming
+ * instead of simply appearing.
  *
  * The director steps aside permanently once the visitor takes the controls
  * (userTouched) or enters the System Lab.
  */
+
+/** Demand the story asks for during each beat; null = leave the state alone. */
+const DEMAND_BY_BEAT: Record<string, number | null> = {
+  stillness: 6,
+  instability: 6,
+  ignition: 6,
+  release: 6,
+  descent: 6,
+  hero: 6,
+  pressure: 40,
+  rising: 62,
+  compression: 92,
+  lock: 92,
+  inspect: 92,
+  prescan: 92,
+  scan: 92,
+  restructure: null,
+  managed: null,
+  reflect: 34,
+  closure: 34,
+  lab: null,
+};
+
 export function useChapterDirector(): void {
-  const chapter = useUIStore((s) => s.activeChapter);
+  const beat = useUIStore((s) => s.stageBeat);
   const labOpen = useUIStore((s) => s.labOpen);
+  const directed = useRef<number | null>(null);
 
   useEffect(() => {
     const sim = useSimStore.getState();
     if (labOpen || sim.userTouched) return;
 
-    switch (chapter) {
-      case 1:
-      case 2:
-        // A near-silent machine: one order at a time.
-        sim.directControls({ demand: 6 });
-        break;
-      case 3:
-        // Back to the scenario's honest baseline.
-        sim.directControls({ demand: 40 });
-        break;
-      case 4:
-      case 5:
-        // Growth arrives. The narrowest chamber will announce itself,
-        // and the AI scan in Chapter 5 gets a real problem to solve.
-        sim.directControls({ demand: 92 });
-        break;
-      case 6:
-        // Leave the state alone — the comparison must be honest.
-        break;
-      case 7:
-      case 8:
-        // The epilogue: calm but alive.
-        sim.directControls({ demand: 34 });
-        break;
-    }
-  }, [chapter, labOpen]);
+    const demand = DEMAND_BY_BEAT[beat] ?? null;
+    if (demand === null || demand === directed.current) return;
+    directed.current = demand;
+    sim.directControls({ demand });
+  }, [beat, labOpen]);
 }
