@@ -32,6 +32,7 @@ export function AIPanel() {
   const scanStatus = useUIStore((s) => s.scanStatus);
   const startScan = useUIStore((s) => s.startScan);
   const completeScan = useUIStore((s) => s.completeScan);
+  const resetScan = useUIStore((s) => s.resetScan);
   const analysis = useSimStore((s) => s.analysis);
   const applyRec = useSimStore((s) => s.applyRec);
   const stale = useSimStore((s) => s.analysisStale);
@@ -43,6 +44,27 @@ export function AIPanel() {
     },
     [],
   );
+
+  // Anything that clears the analysis — changing scenario, resetting the
+  // simulation, loading a comparison ending — leaves scanStatus saying
+  // "complete" while there is nothing to show. That rendered an empty panel
+  // with no way back into it. Treat it as idle, and put the two stores back
+  // in agreement so nothing downstream reads a completed scan that has no
+  // result.
+  const orphaned = scanStatus === "complete" && !analysis;
+  useEffect(() => {
+    if (orphaned) resetScan();
+  }, [orphaned, resetScan]);
+
+  // The Lab keeps the dials and this panel in one window, so a control change
+  // has to be reflected here without demanding a second, separate click.
+  // Debounced, so dragging a slider recomputes once it settles rather than on
+  // every pixel.
+  useEffect(() => {
+    if (!stale || scanStatus !== "complete") return;
+    const t = setTimeout(() => useSimStore.getState().runAnalysis(), 420);
+    return () => clearTimeout(t);
+  }, [stale, scanStatus]);
 
   const analyse = (first: boolean) => {
     if (scanStatus === "scanning") return;
@@ -61,7 +83,7 @@ export function AIPanel() {
         <p className="tech-label">Intelligence layer</p>
       </div>
 
-      {scanStatus === "idle" && (
+      {(scanStatus === "idle" || orphaned) && (
         <div className="ai-idle">
           <p className="ai-hint">
             The scan reads the live state — queues, stock, error rates, satisfaction — and proposes
