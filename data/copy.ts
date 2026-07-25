@@ -153,6 +153,9 @@ export const UI_STRINGS = {
   scanning: "Scanning system state…",
   applyRecommendation: "Apply recommendation",
   reAnalyse: "Re-analyse",
+  stopIntelligence: "Stop",
+  runIntelligenceAgain: "Run it again",
+  intelligenceWorking: "Intelligence working",
   /**
    * Shown when every intervention has been taken. Moving a dial makes advice
    * eligible again — the operator has changed the system it was taken against

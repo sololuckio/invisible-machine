@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SIGNATURE_LINES, UI_STRINGS } from "@/data/copy";
+import { fmtMoney, fmtPct } from "@/lib/format";
 import { NODE_MAP } from "@/simulation/nodes";
 import { useSimStore } from "@/store/simStore";
 import { useUIStore } from "@/store/uiStore";
@@ -10,23 +11,36 @@ import { IconPulse } from "@/components/ui/icons";
 /** Must match ScanEffects' sweep so sight and state agree. */
 const SCAN_MS = 2600;
 const SCAN_MS_REDUCED = 500;
-/**
- * Later analyses are quick. The long sweep is a reveal, and a reveal is only
- * a reveal once — charging it again on every use turns the console's own
- * cinematography into a toll.
- */
-const RESCAN_MS = 520;
+/** How long the machine is left to visibly answer each intervention. */
+const STEP_MS = 2300;
+const STEP_MS_REDUCED = 400;
+/** Stop once the machine is genuinely well, rather than pulling every lever. */
+const HEALTHY_ENOUGH = 88;
+/** Backstop so a pathological state can never loop forever. */
+const MAX_STEPS = 16;
+
+interface Step {
+  title: string;
+  node: string;
+}
 
 /**
- * The intelligence console. One button starts a real analysis of the live
- * simulation; the recommendations shown are the engine's, not scripted.
+ * The intelligence console.
  *
- * Applying advice does **not** close the panel. The analysis is a pure
- * function of simulation state and already drops advice that has been taken,
- * so acting on one recommendation re-ranks the rest in place instead of
- * emptying the console and making the visitor start the whole cycle again.
- * Taken advice collapses into a single line above the list, which keeps the
- * panel the same height on a phone no matter how much has been applied.
+ * One click, then it works and you watch. It scans, takes the highest-leverage
+ * intervention it can find, gives the machine time to answer, reads the result
+ * and decides again — until the system is well or it runs out of levers.
+ *
+ * It used to need a click per intervention, which quietly inverted the
+ * chapter's own claim: a visitor clicking Apply fifteen times to drag a broken
+ * system back to health *is* the intelligence, and the machine is just a form.
+ * Watching it diagnose, act, and re-read its own result is the thing worth
+ * showing.
+ *
+ * Every step is real. Each one re-reads live simulation state through the same
+ * deterministic engine — nothing is scripted, sequenced in advance or played
+ * back, and each decision comes from what the machine looks like at that
+ * moment rather than from a plan drawn up before any of it happened.
  */
 export function AIPanel() {
   const scanStatus = useUIStore((s) => s.scanStatus);
@@ -34,87 +48,121 @@ export function AIPanel() {
   const completeScan = useUIStore((s) => s.completeScan);
   const resetScan = useUIStore((s) => s.resetScan);
   const analysis = useSimStore((s) => s.analysis);
-  const applyRec = useSimStore((s) => s.applyRec);
-  const dialMoved = useSimStore((s) => s.analysisStale);
-  /**
-   * Whether the machine itself has moved away from what was analysed.
-   *
-   * Refreshing when a dial moves is not enough: dragging a control has no
-   * consequences for many cycles, so the reading taken moments later is the
-   * state *before* anything happened. That is how the console came to be
-   * announcing balanced flow and no constraint while payment sat at 126
-   * queued orders. This watches the outcome instead.
-   */
-  const drifted = useSimStore((s) => {
-    const basis = s.analysisBasis;
-    if (!basis || !s.analysis) return false;
-    const m = s.sim.metrics;
-    return (
-      s.sim.bottleneck !== basis.bottleneck ||
-      Math.abs(m.systemHealth - basis.health) >= 5 ||
-      Math.abs(m.totalQueue - basis.queue) >= 30
-    );
-  });
-  const stale = dialMoved || drifted;
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const health = useSimStore((s) => s.sim.metrics.systemHealth);
+  const trapped = useSimStore((s) => s.sim.metrics.trappedRevenue);
+
+  const [working, setWorking] = useState(false);
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [before, setBefore] = useState<{ health: number; trapped: number } | null>(null);
+  const [done, setDone] = useState(false);
+
+  const cancelled = useRef(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearTimers = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  };
 
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      cancelled.current = true;
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
     },
     [],
   );
 
-  // Anything that clears the analysis — changing scenario, resetting the
-  // simulation, loading a comparison ending — leaves scanStatus saying
-  // "complete" while there is nothing to show. That rendered an empty panel
-  // with no way back into it. Treat it as idle, and put the two stores back
-  // in agreement so nothing downstream reads a completed scan that has no
-  // result.
-  const orphaned = scanStatus === "complete" && !analysis;
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => {
+      timers.current.push(setTimeout(resolve, ms));
+    });
+
+  // Anything that clears the analysis — changing scenario, resetting the sim —
+  // leaves scanStatus saying "complete" with nothing to show, which rendered a
+  // panel with no way back into it.
+  const orphaned = scanStatus === "complete" && !analysis && !working;
   useEffect(() => {
-    if (orphaned) resetScan();
+    if (!orphaned) return;
+    resetScan();
+    setDone(false);
+    setSteps([]);
   }, [orphaned, resetScan]);
 
-  // The Lab keeps the dials and this panel in one window, so the reading has
-  // to keep up without demanding a separate click. Debounced, so a slider
-  // being dragged settles once rather than recomputing per pixel, and so a
-  // machine that is still degrading is re-read after it has moved rather than
-  // on every tick.
-  useEffect(() => {
-    if (!stale || scanStatus !== "complete") return;
-    const t = setTimeout(() => useSimStore.getState().runAnalysis(), 700);
-    return () => clearTimeout(t);
-  }, [stale, scanStatus]);
+  const run = useCallback(async () => {
+    cancelled.current = false;
+    clearTimers();
 
-  const analyse = (first: boolean) => {
-    if (scanStatus === "scanning") return;
-    startScan();
+    const store = useSimStore.getState();
     const reduced = useUIStore.getState().reducedMotion;
-    const wait = reduced ? SCAN_MS_REDUCED : first ? SCAN_MS : RESCAN_MS;
-    timer.current = setTimeout(() => {
+    // A paused machine cannot answer an intervention, so there would be
+    // nothing to watch. Take it off pause rather than silently doing nothing.
+    if (!store.running) store.setRunning(true);
+
+    setWorking(true);
+    setDone(false);
+    setSteps([]);
+    setBefore({
+      health: store.sim.metrics.systemHealth,
+      trapped: store.sim.metrics.trappedRevenue,
+    });
+
+    startScan();
+    await wait(reduced ? SCAN_MS_REDUCED : SCAN_MS);
+    if (cancelled.current) {
+      setWorking(false);
+      return;
+    }
+    useSimStore.getState().runAnalysis();
+    completeScan();
+
+    for (let i = 0; i < MAX_STEPS; i++) {
+      if (cancelled.current) break;
+      const state = useSimStore.getState();
+      const next = state.runAnalysis().recommendations[0];
+      if (!next) break;
+      if (state.sim.metrics.systemHealth >= HEALTHY_ENOUGH) break;
+
+      setSteps((prev) => [...prev, { title: next.title, node: NODE_MAP[next.targetNode].tag }]);
+      state.applyRec(next);
+      await wait(reduced ? STEP_MS_REDUCED : STEP_MS);
+    }
+
+    if (!cancelled.current) {
       useSimStore.getState().runAnalysis();
-      completeScan();
-    }, wait);
+      setDone(true);
+    }
+    setWorking(false);
+  }, [startScan, completeScan]);
+
+  const stop = () => {
+    cancelled.current = true;
+    clearTimers();
+    setWorking(false);
+    setDone(true);
   };
+
+  const showIdle = (scanStatus === "idle" || orphaned) && !working;
 
   return (
     <div className="panel ai-panel" aria-live="off">
       <div className="panel-head">
         <p className="tech-label">Intelligence layer</p>
+        {working && (
+          <button type="button" className="btn btn-ghost" onClick={stop}>
+            {UI_STRINGS.stopIntelligence}
+          </button>
+        )}
       </div>
 
-      {(scanStatus === "idle" || orphaned) && (
+      {showIdle && (
         <div className="ai-idle">
           <p className="ai-hint">
-            The scan reads the live state — queues, stock, error rates, satisfaction — and proposes
-            the intervention with the most leverage. Nothing here is scripted.
+            One click. The intelligence reads the live state — queues, stock, error rates,
+            satisfaction — takes the highest-leverage intervention it can find, waits for the
+            machine to answer, then reads it again and decides afresh. Nothing here is scripted.
           </p>
-          <button
-            type="button"
-            className="btn btn-primary ai-activate"
-            onClick={() => analyse(true)}
-          >
+          <button type="button" className="btn btn-primary ai-activate" onClick={run}>
             <IconPulse /> {UI_STRINGS.activateIntelligence}
           </button>
         </div>
@@ -127,54 +175,56 @@ export function AIPanel() {
         </div>
       )}
 
-      {scanStatus === "complete" && analysis && (
+      {scanStatus === "complete" && analysis && !showIdle && (
         <div className="ai-results">
           <p className="ai-narrative">{analysis.narrative}</p>
 
-          <AppliedSummary />
-
-          {analysis.recommendations.length > 0 ? (
-            <ol className="ai-recs">
-              {analysis.recommendations.map((rec, i) => (
-                <li key={rec.id} className={`ai-rec${i === 0 ? " is-primary" : ""}`}>
-                  <div className="ai-rec-head">
-                    <span className="tech-label">
-                      {i === 0 ? "PRIMARY" : `OPTION ${i + 1}`} · {NODE_MAP[rec.targetNode].tag}
-                    </span>
-                    <h4>{rec.title}</h4>
-                  </div>
-                  <p className="ai-rec-evidence">{rec.evidence}</p>
-                  <p className="ai-rec-detail">{rec.detail}</p>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => applyRec(rec)}
-                  >
-                    {UI_STRINGS.applyRecommendation}
-                  </button>
+          {(working || steps.length > 0) && (
+            <ol className="ai-steps" aria-label="Interventions taken">
+              {steps.map((step, i) => (
+                <li key={`${step.title}-${i}`} className="ai-step">
+                  <span className="ai-step-mark" aria-hidden="true">
+                    ✓
+                  </span>
+                  <span className="ai-step-body">
+                    <span className="tech-label">{step.node}</span>
+                    {step.title}
+                  </span>
                 </li>
               ))}
+              {working && (
+                <li className="ai-step is-thinking" role="status">
+                  <span className="ai-step-mark" aria-hidden="true" />
+                  <span className="ai-step-body">{UI_STRINGS.intelligenceWorking}…</span>
+                </li>
+              )}
             </ol>
-          ) : (
-            <p className="ai-hint ai-exhausted">{UI_STRINGS.recommendationsExhausted}</p>
           )}
 
-          {/* One action, one place. It only asks to be pressed once the state
-              it was computed from has actually moved. */}
-          <div className="ai-refresh">
-            <button
-              type="button"
-              className={`btn ${stale ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => analyse(false)}
-            >
-              {UI_STRINGS.reAnalyse}
-            </button>
-            {stale && (
-              <span className="ai-stale" role="status">
-                {UI_STRINGS.stateMoved}
-              </span>
-            )}
-          </div>
+          {done && before && (
+            <div className="ai-outcome">
+              <p className="tech-label">Result</p>
+              <dl className="ai-outcome-grid">
+                <div>
+                  <dt>System health</dt>
+                  <dd>
+                    {fmtPct(Math.round(before.health))} <span aria-hidden="true">→</span>{" "}
+                    <strong>{fmtPct(Math.round(health))}</strong>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Trapped revenue</dt>
+                  <dd>
+                    {fmtMoney(before.trapped)} <span aria-hidden="true">→</span>{" "}
+                    <strong>{fmtMoney(trapped)}</strong>
+                  </dd>
+                </div>
+              </dl>
+              <button type="button" className="btn btn-ghost" onClick={run}>
+                {UI_STRINGS.runIntelligenceAgain}
+              </button>
+            </div>
+          )}
 
           <p className="ai-signature">
             {SIGNATURE_LINES.automation[0]} <em>{SIGNATURE_LINES.automation[1]}</em>
@@ -182,27 +232,5 @@ export function AIPanel() {
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * Advice already taken, as one line. Kept out of the recommendation list so
- * the panel stays the same height however much has been applied — the
- * consequences are the before/after ledger's job, not this console's.
- */
-function AppliedSummary() {
-  const applied = useSimStore((s) => s.sim.appliedRecommendations);
-  const history = useSimStore((s) => s.appliedHistory);
-  if (applied.length === 0) return null;
-  const names = applied.map((id) => history[id] ?? id);
-  return (
-    <p className="ai-applied-summary">
-      <span className="ai-applied-check" aria-hidden="true">
-        ✓
-      </span>
-      <span>
-        <span className="ai-applied-label">Applied</span> {names.join(" · ")}
-      </span>
-    </p>
   );
 }

@@ -974,114 +974,103 @@ input[type="range"]:disabled {
   font-size: 0.82rem;
   padding: 0.85rem 1.4rem;
 }
-/* Advice already taken, as one line. Kept out of the recommendation list so
-   the panel is the same height however much has been applied. */
-.ai-applied-summary {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin: 0 0 0.9rem;
-  padding: 0.5rem 0.7rem;
-  border-left: 2px solid var(--color-success);
-  background: rgba(127, 224, 178, 0.06);
-  font-size: 0.78rem;
-  color: var(--color-dim);
-}
-.ai-applied-check {
-  color: var(--color-success);
-}
-.ai-applied-label {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-success);
-  margin-right: 0.3rem;
-}
-.ai-exhausted {
-  margin-bottom: 0.9rem;
-}
-/* One action, one place — quiet until the state it was computed from moves. */
-.ai-refresh {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-.ai-stale {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-warn);
-}
-.ai-applied-note strong {
-  color: var(--color-success);
-}
-.ai-scanning {
-  padding: 1.4rem 0 1rem;
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.1em;
-  color: var(--color-signal);
-}
-.ai-scanline {
-  height: 2px;
-  margin-bottom: 1rem;
-  background: linear-gradient(90deg, transparent, var(--color-signal), transparent);
-  background-size: 45% 100%;
-  background-repeat: no-repeat;
-  animation: scanline 1.15s linear infinite;
-}
-@keyframes scanline {
-  0% {
-    background-position: -45% 0;
-  }
-  100% {
-    background-position: 145% 0;
-  }
-}
-.ai-narrative {
-  font-size: 0.92rem;
-  line-height: 1.6;
-  color: var(--color-ink);
-  border-left: 2px solid var(--color-signal);
-  padding-left: 0.9rem;
-  margin-bottom: 1.1rem;
-}
-.ai-recs {
+/* The intelligence's working log: what it decided, in the order it decided
+   it, with the machine visibly answering between each one. */
+.ai-steps {
   list-style: none;
+  margin: 0.9rem 0 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  padding: 0;
-}
-.ai-rec {
+  gap: 1px;
+  background: rgba(232, 234, 237, 0.07);
   border: var(--line);
-  padding: 0.85rem 0.95rem;
 }
-.ai-rec.is-primary {
-  border-color: rgba(110, 231, 255, 0.4);
+.ai-step {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--color-panel-solid);
+  font-size: 0.82rem;
+  color: var(--color-ink);
+  animation: step-in 0.32s ease both;
 }
-.ai-rec-head h4 {
-  font-size: 0.98rem;
-  font-weight: 650;
-  margin: 0.3rem 0 0.5rem;
+.ai-step-mark {
+  color: var(--color-success);
+  font-size: 0.8rem;
+  width: 0.8rem;
+  flex: none;
 }
-.ai-rec-evidence {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.72rem;
-  line-height: 1.55;
-  color: var(--color-warn);
-  margin-bottom: 0.5rem;
+.ai-step-body .tech-label {
+  display: block;
+  margin-bottom: 0.1rem;
 }
-.ai-rec-detail {
-  font-size: 0.83rem;
+.ai-step.is-thinking {
   color: var(--color-dim);
-  line-height: 1.55;
-  margin-bottom: 0.7rem;
 }
+.ai-step.is-thinking .ai-step-mark {
+  border-left: 2px solid var(--color-signal);
+  height: 0.8rem;
+  animation: thinking 1s ease-in-out infinite;
+}
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes thinking {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-step,
+  .ai-step.is-thinking .ai-step-mark {
+    animation: none;
+  }
+}
+
+/* What the run actually achieved, which is the chapter's whole argument. */
+.ai-outcome {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: var(--line);
+}
+.ai-outcome-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin: 0.5rem 0 0.9rem;
+}
+.ai-outcome-grid dt {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  margin-bottom: 0.2rem;
+}
+.ai-outcome-grid dd {
+  margin: 0;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.86rem;
+  color: var(--color-dim);
+  font-variant-numeric: tabular-nums;
+}
+.ai-outcome-grid strong {
+  color: var(--color-success);
+}
+
 .ai-signature {
   margin-top: 1.2rem;
   font-size: 0.95rem;

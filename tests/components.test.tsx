@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemDiagram } from "@/components/fallback/SystemDiagram";
 import { AIPanel } from "@/components/system/AIPanel";
@@ -84,54 +84,60 @@ describe("NodeInspector", () => {
 });
 
 describe("AIPanel", () => {
-  it("runs a scan against the live state and offers real recommendations", () => {
-    vi.useFakeTimers();
-    // Put the machine under real pressure so the analysis has work to do.
-    useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 0) });
+  it("takes one click, then works on its own", async () => {
+    // Reduced motion shortens the console's own timings, which is what makes
+    // the autonomous loop testable without a multi-second wall clock.
+    useUIStore.setState({ reducedMotion: true });
     useSimStore.getState().loadScenario("viral");
     useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 100) });
+    const controlsBefore = { ...useSimStore.getState().sim.controls };
 
     render(<AIPanel />);
     fireEvent.click(screen.getByRole("button", { name: /Activate Intelligence/i }));
     expect(useUIStore.getState().scanStatus).toBe("scanning");
-    vi.advanceTimersByTime(3000);
-    vi.useRealTimers();
 
-    expect(useUIStore.getState().scanStatus).toBe("complete");
-    const analysis = useSimStore.getState().analysis;
-    expect(analysis).not.toBeNull();
-    expect(analysis!.recommendations[0].id).toBe("add-fulfilment-capacity");
-  });
+    // A stop control has to exist the moment it starts: an autonomous process
+    // the visitor cannot interrupt is worse than one that never started.
+    await screen.findByRole("button", { name: "Stop" }, { timeout: 4000 });
 
-  it("applying the recommendation changes the simulation", () => {
+    // It applies several interventions from one click, without being asked
+    // again — the whole point of the change.
+    await waitFor(
+      () => expect(useSimStore.getState().sim.appliedRecommendations.length).toBeGreaterThan(1),
+      { timeout: 8000 },
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull(), {
+      timeout: 12000,
+    });
+
+    // Each intervention really moved the machine's controls. Whether health
+    // then improves is the engine's business and is asserted in the simulation
+    // suite with real cycles — nothing ticks the clock in jsdom, so metrics
+    // cannot move here however correct the loop is.
+    expect(useSimStore.getState().sim.controls).not.toEqual(controlsBefore);
+    expect(screen.getByText("Result")).toBeInTheDocument();
+    useUIStore.setState({ reducedMotion: false });
+  }, 20000);
+
+  it("recovers instead of rendering nothing when the analysis is cleared", () => {
+    // Changing scenario clears the analysis while scanStatus still says
+    // "complete". That combination used to render an empty panel with no
+    // control in it at all.
     useSimStore.getState().loadScenario("viral");
     useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 100) });
-    const staffBefore = useSimStore.getState().sim.controls.staff;
-    const analysis = useSimStore.getState().runAnalysis();
+    useSimStore.getState().runAnalysis();
     useUIStore.getState().startScan();
     useUIStore.getState().completeScan();
 
+    useSimStore.getState().loadScenario("breakdown");
+    expect(useSimStore.getState().analysis).toBeNull();
+
     render(<AIPanel />);
-    const first = analysis.recommendations[0];
-    fireEvent.click(screen.getAllByRole("button", { name: "Apply recommendation" })[0]);
-    expect(useSimStore.getState().sim.appliedRecommendations).toContain(first.id);
-    expect(useSimStore.getState().sim.controls.staff).toBeGreaterThan(staffBefore);
-
-    // The console stays open. Applying used to empty it and send the visitor
-    // back to the start of the cycle for every single intervention.
-    expect(useUIStore.getState().scanStatus).toBe("complete");
-
-    // The analysis is re-read against the new state rather than discarded,
-    // so the remaining options are still there to act on.
-    const after = useSimStore.getState().analysis;
-    expect(after).not.toBeNull();
-    expect(after!.recommendations.map((r) => r.id)).not.toContain(first.id);
-
-    // Taken advice collapses to one line instead of growing the list.
-    expect(screen.getByText(/Applied/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(first.title))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Activate Intelligence/i })).toBeInTheDocument();
   });
+});
 
+describe("intelligence loop", () => {
   it("re-offers advice while its lever still has room", () => {
     // The System Lab puts the dials and the intelligence layer in one window,
     // so advice that is spent after a single use leaves it with nothing to do.
