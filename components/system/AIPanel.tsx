@@ -10,20 +10,31 @@ import { IconPulse } from "@/components/ui/icons";
 /** Must match ScanEffects' sweep so sight and state agree. */
 const SCAN_MS = 2600;
 const SCAN_MS_REDUCED = 500;
+/**
+ * Later analyses are quick. The long sweep is a reveal, and a reveal is only
+ * a reveal once — charging it again on every use turns the console's own
+ * cinematography into a toll.
+ */
+const RESCAN_MS = 520;
 
 /**
  * The intelligence console. One button starts a real analysis of the live
  * simulation; the recommendations shown are the engine's, not scripted.
+ *
+ * Applying advice does **not** close the panel. The analysis is a pure
+ * function of simulation state and already drops advice that has been taken,
+ * so acting on one recommendation re-ranks the rest in place instead of
+ * emptying the console and making the visitor start the whole cycle again.
+ * Taken advice collapses into a single line above the list, which keeps the
+ * panel the same height on a phone no matter how much has been applied.
  */
 export function AIPanel() {
   const scanStatus = useUIStore((s) => s.scanStatus);
   const startScan = useUIStore((s) => s.startScan);
   const completeScan = useUIStore((s) => s.completeScan);
-  const resetScan = useUIStore((s) => s.resetScan);
   const analysis = useSimStore((s) => s.analysis);
-  const applied = useSimStore((s) => s.sim.appliedRecommendations);
   const applyRec = useSimStore((s) => s.applyRec);
-  const lastApplied = useSimStore((s) => s.lastAppliedRec);
+  const stale = useSimStore((s) => s.analysisStale);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -33,28 +44,21 @@ export function AIPanel() {
     [],
   );
 
-  const activate = () => {
+  const analyse = (first: boolean) => {
     if (scanStatus === "scanning") return;
     startScan();
     const reduced = useUIStore.getState().reducedMotion;
-    timer.current = setTimeout(
-      () => {
-        useSimStore.getState().runAnalysis();
-        completeScan();
-      },
-      reduced ? SCAN_MS_REDUCED : SCAN_MS,
-    );
+    const wait = reduced ? SCAN_MS_REDUCED : first ? SCAN_MS : RESCAN_MS;
+    timer.current = setTimeout(() => {
+      useSimStore.getState().runAnalysis();
+      completeScan();
+    }, wait);
   };
 
   return (
     <div className="panel ai-panel" aria-live="off">
       <div className="panel-head">
         <p className="tech-label">Intelligence layer</p>
-        {scanStatus === "complete" && (
-          <button type="button" className="btn btn-ghost" onClick={resetScan}>
-            Re-scan
-          </button>
-        )}
       </div>
 
       {scanStatus === "idle" && (
@@ -63,15 +67,13 @@ export function AIPanel() {
             The scan reads the live state — queues, stock, error rates, satisfaction — and proposes
             the intervention with the most leverage. Nothing here is scripted.
           </p>
-          <button type="button" className="btn btn-primary ai-activate" onClick={activate}>
+          <button
+            type="button"
+            className="btn btn-primary ai-activate"
+            onClick={() => analyse(true)}
+          >
             <IconPulse /> {UI_STRINGS.activateIntelligence}
           </button>
-          {lastApplied && (
-            <p className="ai-applied-note">
-              Last applied: <strong>{lastApplied.title}</strong> — watch{" "}
-              {NODE_MAP[lastApplied.targetNode].name.toLowerCase()} respond, then scan again.
-            </p>
-          )}
         </div>
       )}
 
@@ -85,10 +87,12 @@ export function AIPanel() {
       {scanStatus === "complete" && analysis && (
         <div className="ai-results">
           <p className="ai-narrative">{analysis.narrative}</p>
-          <ol className="ai-recs">
-            {analysis.recommendations.map((rec, i) => {
-              const isApplied = applied.includes(rec.id);
-              return (
+
+          <AppliedSummary />
+
+          {analysis.recommendations.length > 0 ? (
+            <ol className="ai-recs">
+              {analysis.recommendations.map((rec, i) => (
                 <li key={rec.id} className={`ai-rec${i === 0 ? " is-primary" : ""}`}>
                   <div className="ai-rec-head">
                     <span className="tech-label">
@@ -100,26 +104,65 @@ export function AIPanel() {
                   <p className="ai-rec-detail">{rec.detail}</p>
                   <button
                     type="button"
-                    className={`btn ${isApplied ? "btn-ghost" : "btn-primary"}`}
-                    disabled={isApplied}
-                    onClick={() => {
-                      // Applying changes the state, so the console returns to
-                      // idle: watch the machine react, then scan again.
-                      applyRec(rec);
-                      resetScan();
-                    }}
+                    className="btn btn-primary"
+                    onClick={() => applyRec(rec)}
                   >
-                    {isApplied ? UI_STRINGS.applied : UI_STRINGS.applyRecommendation}
+                    {UI_STRINGS.applyRecommendation}
                   </button>
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+            </ol>
+          ) : (
+            <p className="ai-hint ai-exhausted">
+              Every intervention the engine can see has been applied. Watch the machine settle, or
+              push the dials somewhere new and analyse again.
+            </p>
+          )}
+
+          {/* One action, one place. It only asks to be pressed once the state
+              it was computed from has actually moved. */}
+          <div className="ai-refresh">
+            <button
+              type="button"
+              className={`btn ${stale ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => analyse(false)}
+            >
+              {UI_STRINGS.reAnalyse}
+            </button>
+            {stale && (
+              <span className="ai-stale" role="status">
+                {UI_STRINGS.stateMoved}
+              </span>
+            )}
+          </div>
+
           <p className="ai-signature">
             {SIGNATURE_LINES.automation[0]} <em>{SIGNATURE_LINES.automation[1]}</em>
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Advice already taken, as one line. Kept out of the recommendation list so
+ * the panel stays the same height however much has been applied — the
+ * consequences are the before/after ledger's job, not this console's.
+ */
+function AppliedSummary() {
+  const applied = useSimStore((s) => s.sim.appliedRecommendations);
+  const history = useSimStore((s) => s.appliedHistory);
+  if (applied.length === 0) return null;
+  const names = applied.map((id) => history[id] ?? id);
+  return (
+    <p className="ai-applied-summary">
+      <span className="ai-applied-check" aria-hidden="true">
+        ✓
+      </span>
+      <span>
+        <span className="ai-applied-label">Applied</span> {names.join(" · ")}
+      </span>
+    </p>
   );
 }

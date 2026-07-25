@@ -112,13 +112,42 @@ describe("AIPanel", () => {
     useUIStore.getState().completeScan();
 
     render(<AIPanel />);
+    const first = analysis.recommendations[0];
     fireEvent.click(screen.getAllByRole("button", { name: "Apply recommendation" })[0]);
-    expect(useSimStore.getState().sim.appliedRecommendations).toContain(
-      analysis.recommendations[0].id,
-    );
+    expect(useSimStore.getState().sim.appliedRecommendations).toContain(first.id);
     expect(useSimStore.getState().sim.controls.staff).toBeGreaterThan(staffBefore);
-    // Console returns to idle so the visitor watches the machine react.
-    expect(useUIStore.getState().scanStatus).toBe("idle");
+
+    // The console stays open. Applying used to empty it and send the visitor
+    // back to the start of the cycle for every single intervention.
+    expect(useUIStore.getState().scanStatus).toBe("complete");
+
+    // The analysis is re-read against the new state rather than discarded,
+    // so the remaining options are still there to act on.
+    const after = useSimStore.getState().analysis;
+    expect(after).not.toBeNull();
+    expect(after!.recommendations.map((r) => r.id)).not.toContain(first.id);
+
+    // Taken advice collapses to one line instead of growing the list.
+    expect(screen.getByText(/Applied/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(first.title))).toBeInTheDocument();
+  });
+
+  it("only asks to re-analyse once the state it read has moved", () => {
+    useSimStore.getState().loadScenario("viral");
+    useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 100) });
+    useSimStore.getState().runAnalysis();
+    useUIStore.getState().startScan();
+    useUIStore.getState().completeScan();
+    expect(useSimStore.getState().analysisStale).toBe(false);
+
+    // Moving a dial dates the advice without throwing it away.
+    useSimStore.getState().setControl("demand", 95);
+    expect(useSimStore.getState().analysisStale).toBe(true);
+    expect(useSimStore.getState().analysis).not.toBeNull();
+
+    // Re-reading clears it again.
+    useSimStore.getState().runAnalysis();
+    expect(useSimStore.getState().analysisStale).toBe(false);
   });
 });
 

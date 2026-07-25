@@ -152,6 +152,8 @@ export const UI_STRINGS = {
   activateIntelligence: "Activate Intelligence",
   scanning: "Scanning system state…",
   applyRecommendation: "Apply recommendation",
+  reAnalyse: "Re-analyse",
+  stateMoved: "state has moved",
   applied: "Applied",
   runComparison: "Run the comparison",
   exploreAgain: "Explore the system again",

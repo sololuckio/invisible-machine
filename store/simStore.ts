@@ -24,6 +24,17 @@ interface SimStore {
   appliedPulse: number;
   /** The most recently applied recommendation (drives targeted FX). */
   lastAppliedRec: Recommendation | null;
+  /**
+   * True when the dials have moved since the analysis was computed, so the
+   * panel can say the numbers are behind without throwing them away.
+   */
+  analysisStale: boolean;
+  /**
+   * Titles of applied advice, by id. The analysis drops advice once it has
+   * been taken, so its wording is gone from state the moment it is applied —
+   * this keeps enough to name it in the console's one-line history.
+   */
+  appliedHistory: Record<string, string>;
 
   tick: () => void;
   setRunning: (running: boolean) => void;
@@ -57,6 +68,8 @@ export const useSimStore = create<SimStore>()((set, get) => ({
   comparison: null,
   appliedPulse: 0,
   lastAppliedRec: null,
+  analysisStale: false,
+  appliedHistory: {},
 
   tick: () => {
     const { sim, running } = get();
@@ -67,10 +80,14 @@ export const useSimStore = create<SimStore>()((set, get) => ({
   setRunning: (running) => set({ running }),
 
   setControl: (key, value) => {
-    const { sim } = get();
+    const { sim, analysis } = get();
     set({
       userTouched: true,
       sim: { ...sim, controls: { ...sim.controls, [key]: value } },
+      // Moving a dial dates the advice. Flag it rather than clearing it —
+      // wiping the panel every time a slider twitches is what made the
+      // intelligence console feel like it kept resetting itself.
+      analysisStale: analysis !== null,
     });
   },
 
@@ -85,6 +102,8 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       analysis: null,
       comparison: null,
       userTouched: false,
+      analysisStale: false,
+      appliedHistory: {},
     }),
 
   reset: () => {
@@ -94,23 +113,31 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       analysis: null,
       comparison: null,
       userTouched: false,
+      analysisStale: false,
+      appliedHistory: {},
     });
   },
 
   runAnalysis: () => {
     const analysis = analyze(get().sim);
-    set({ analysis });
+    set({ analysis, analysisStale: false });
     return analysis;
   },
 
   applyRec: (rec) => {
     const { sim, appliedPulse } = get();
+    const next = applyRecommendation(sim, rec);
     set({
-      sim: applyRecommendation(sim, rec),
+      sim: next,
       appliedPulse: appliedPulse + 1,
       lastAppliedRec: rec,
-      // Applied advice changes the state — stale analysis must not linger.
-      analysis: null,
+      appliedHistory: { ...get().appliedHistory, [rec.id]: rec.title },
+      // Re-read the new state immediately instead of blanking the panel. The
+      // analysis is a pure function of the simulation and already drops advice
+      // that has been applied, so the remaining options simply re-rank in
+      // place — acting on one no longer costs you the other two.
+      analysis: analyze(next),
+      analysisStale: false,
     });
   },
 
@@ -138,6 +165,7 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       sim: s,
       userTouched: true,
       analysis: null,
+      analysisStale: false,
       running: true,
     });
   },
