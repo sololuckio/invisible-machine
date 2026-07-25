@@ -162,7 +162,7 @@ function detailed<T extends THREE.MeshStandardMaterial>(mat: T, d: SurfaceDetail
 /** Shaft frames and rails: mid graphite, vertical grain. */
 export const structuralMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#39434f", metalness: 0.3, roughness: 0.58 }),
-  { wear: 0.18, brush: 0.07, grain: [1.4, 52, 1.4], rim: 0.055, dust: 0.14 },
+  { wear: 0.18, brush: 0.07, grain: [1.4, 52, 1.4], rim: 0.07, dust: 0.14 },
 );
 
 /** Recessed structure — darker, quieter, further back. */
@@ -192,13 +192,13 @@ export const railMat = detailed(
 /** Station bodies: machined shells with a selective sheen. */
 export const shellMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#46525f", metalness: 0.38, roughness: 0.4 }),
-  { scale: 2.4, wear: 0.13, mottle: 0.06, dust: 0.1, brush: 0.08, grain: [2, 60, 2], rim: 0.075 },
+  { scale: 2.4, wear: 0.13, mottle: 0.06, dust: 0.1, brush: 0.08, grain: [2, 60, 2], rim: 0.1 },
 );
 
 /** Moving contact surfaces: polished by use, tighter highlight. */
 export const machinedMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#59636e", metalness: 0.74, roughness: 0.22 }),
-  { scale: 3.2, wear: 0.09, mottle: 0.04, dust: 0.03, brush: 0.05, grain: [58, 2, 58], rim: 0.11 },
+  { scale: 3.2, wear: 0.09, mottle: 0.04, dust: 0.03, brush: 0.05, grain: [58, 2, 58], rim: 0.145 },
 );
 
 /** Inset faces and internal walls: matte, recessed, no sparkle. */
@@ -271,10 +271,10 @@ export const trimMat = new THREE.MeshBasicMaterial({
 
 /** Soft warm interior light — used sparingly inside chambers. */
 export const interiorGlowMat = new THREE.MeshBasicMaterial({
-  color: "#2b3a45",
+  color: "#22303a",
   toneMapped: false,
   transparent: true,
-  opacity: 0.85,
+  opacity: 0.7,
 });
 
 /**

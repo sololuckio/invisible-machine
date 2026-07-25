@@ -53,6 +53,25 @@ export function settle(t: number, amplitude = 1, rate = 9, frequency = 22): numb
   return Math.exp(-t * rate) * Math.sin(t * frequency) * amplitude;
 }
 
+/**
+ * A machine cycle with real mechanics: accelerate away, decelerate into the
+ * stop, hold, return, hold. `t` is a free-running phase — one whole number is
+ * one full there-and-back cycle. Returns 0..1 travel.
+ *
+ * Actuators never move at constant velocity and never stop instantly, and a
+ * pick-and-place spends a surprising amount of its cycle standing still. Both
+ * facts are what make a mechanism read as having mass rather than being
+ * keyframed, which is why this exists instead of a sine.
+ */
+export function travelDwell(t: number, dwell = 0.16): number {
+  const c = t - Math.floor(t);
+  const move = 0.5 - dwell;
+  if (c < move) return easeInOut(c / move);
+  if (c < 0.5) return 1;
+  if (c < 0.5 + move) return 1 - easeInOut((c - 0.5) / move);
+  return 0;
+}
+
 /** Timing constants (seconds) shared by DOM and 3D layers. */
 export const TIMING = {
   /** AI scan sweep — must match the AI panel's countdown. */

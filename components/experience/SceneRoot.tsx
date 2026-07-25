@@ -17,6 +17,7 @@ import { OrderParticles } from "./OrderParticles";
 import { Pathways } from "./Pathways";
 import { QueueMarkers } from "./QueueMarkers";
 import { ScanEffects } from "./ScanEffects";
+import { StationHardware } from "./StationHardware";
 import { StationNode } from "./StationNode";
 import { SurfacePlate } from "./SurfacePlate";
 
@@ -46,7 +47,10 @@ const DEPTH: { at: number; near: number; far: number }[] = [
   // Chapter 1: the street reads shallow; whatever is below is only implied.
   { at: 2, near: 12, far: 34 },
   // Chapter 2: descending through haze — the machine arrives as silhouette.
-  { at: 3, near: 10, far: 32 },
+  { at: 2.55, near: 10, far: 32 },
+  // Chapter 2's finale pulls back the length of the shaft, so the air has to
+  // open up with it — otherwise the network reveal arrives already fogged out.
+  { at: 3, near: 17, far: 54 },
   // Working chapters: clear enough to read instruments.
   { at: 6, near: 14, far: 48 },
   // Chapter 6–7: wide, air between the layers.
@@ -118,6 +122,7 @@ export default function SceneRoot() {
         {NODE_DEFS.map((def) => (
           <StationNode key={def.id} def={def} revealed={revealed} />
         ))}
+        <StationHardware />
         <Pathways />
         <HeroOrder />
         <OrderParticles key={`pool-${profile.particles}`} pool={profile.particles} />

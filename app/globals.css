@@ -1197,6 +1197,7 @@ input[type="range"]:disabled {
    ============================================================ */
 
 .node-label {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -1210,10 +1211,25 @@ input[type="range"]:disabled {
   transition: color 0.2s ease;
   user-select: none;
 }
+/* Anchor stem: a short leader from the readout down toward the station it
+   belongs to, so the label reads as attached to the world rather than floating
+   above it. */
+.node-label::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 100%;
+  width: 2px;
+  height: 9px;
+  background: linear-gradient(180deg, rgba(110, 231, 255, 0.35), rgba(110, 231, 255, 0));
+}
 .node-label.is-active {
   color: var(--color-ink);
   border-left-color: var(--color-signal);
   background: linear-gradient(90deg, rgba(8, 9, 11, 0.75), rgba(8, 9, 11, 0));
+}
+.node-label.is-active::after {
+  background: linear-gradient(180deg, var(--color-signal), rgba(110, 231, 255, 0));
 }
 .node-label-tag {
   font-size: 8.5px;
@@ -1224,14 +1240,35 @@ input[type="range"]:disabled {
   font-size: 11.5px;
   letter-spacing: 0.06em;
 }
-.node-label-queue {
-  font-size: 8.5px;
-  letter-spacing: 0.14em;
+/* Instrument rows: what it can take, what is waiting, how hard it is working.
+   Values are tabular so the readout never jitters as digits change. */
+.node-label-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(110, 231, 255, 0.14);
 }
-.node-label-queue[data-status="strained"] {
+.node-label-row {
+  display: flex;
+  gap: 6px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+}
+.node-label-key {
+  min-width: 30px;
+  opacity: 0.5;
+}
+.node-label-val {
+  font-variant-numeric: tabular-nums;
+  color: rgba(232, 234, 237, 0.82);
+}
+.node-label-val[data-status="strained"] {
   color: var(--color-warn);
 }
-.node-label-queue[data-status="critical"] {
+.node-label-val[data-status="critical"] {
   color: var(--color-danger);
 }
 

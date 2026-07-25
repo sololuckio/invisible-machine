@@ -295,7 +295,9 @@ function buildDistantPlant(L: FacilityLayout): void {
   for (let i = 0; i < 26; i++) {
     const a = (i / 26) * TAU + hash01(i) * 0.22;
     // Behind the machine only, and never close enough to read as an object.
-    if (Math.sin(a) > 0.3) continue;
+    // The gate allows for the lit windows below, which are offset from their
+    // block's centre line by up to ±0.08 rad.
+    if (Math.sin(a) > 0.22) continue;
     const r = 18 + hash01(i * 3) * 11;
     const h = 5 + hash01(i * 7) * 13;
     const y = -3 - hash01(i * 11) * 15;
