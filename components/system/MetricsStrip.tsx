@@ -1,12 +1,18 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useShallow } from "zustand/shallow";
 import { fmtHours, fmtInt, fmtMoney, fmtPct, fmtRate } from "@/lib/format";
+import { damp } from "@/lib/motion";
 import { useSimStore } from "@/store/simStore";
+import { useUIStore } from "@/store/uiStore";
 
 /**
  * The machine's vital signs. Values are rounded in the selector so the
- * strip only re-renders when a displayed digit actually changes.
+ * strip only re-renders when a displayed digit actually changes; between
+ * those changes a single frame loop eases each figure toward its new value
+ * and writes it straight to the DOM. Numbers travel instead of jumping, at
+ * no React cost. Reduced motion snaps them.
  */
 
 type Tone = "ok" | "warn" | "danger" | "neutral";
@@ -34,28 +40,38 @@ export function MetricsStrip() {
     })),
   );
 
-  const cells: { label: string; value: string; tone: Tone; title: string }[] = [
+  const cells: {
+    label: string;
+    value: number;
+    format: (n: number) => string;
+    tone: Tone;
+    title: string;
+  }[] = [
     {
       label: "System health",
-      value: fmtPct(m.health),
+      value: m.health,
+      format: fmtPct,
       tone: toneFor(m.health, 75, 50),
       title: "Composite of satisfaction, delivery performance, congestion and errors",
     },
     {
       label: "Satisfaction",
-      value: fmtPct(m.satisfaction),
+      value: m.satisfaction,
+      format: fmtPct,
       tone: toneFor(m.satisfaction, 75, 55),
       title: "How customers are experiencing the machine right now",
     },
     {
       label: "Orders in",
-      value: fmtRate(m.arrival),
+      value: m.arrival,
+      format: fmtRate,
       tone: "neutral",
       title: "Arrival rate",
     },
     {
       label: "Orders out",
-      value: fmtRate(m.completion),
+      value: m.completion,
+      format: fmtRate,
       tone:
         m.completion >= m.arrival * 0.9
           ? "ok"
@@ -66,54 +82,98 @@ export function MetricsStrip() {
     },
     {
       label: "In queues",
-      value: fmtInt(m.queue),
+      value: m.queue,
+      format: fmtInt,
       tone: m.queue > 250 ? "danger" : m.queue > 90 ? "warn" : "ok",
       title: "Orders waiting somewhere in the machine",
     },
     {
       label: "Order lead time",
-      value: fmtHours(m.processing),
+      value: m.processing,
+      format: fmtHours,
       tone: m.processing > 60 ? "danger" : m.processing > 38 ? "warn" : "ok",
       title: "Click to doorstep at current congestion",
     },
     {
       label: "Trapped revenue",
-      value: fmtMoney(m.trapped),
+      value: m.trapped,
+      format: fmtMoney,
       tone: m.trapped > 12000 ? "danger" : m.trapped > 4500 ? "warn" : "ok",
       title: "Value stuck as work-in-progress",
     },
     {
       label: "Captured revenue",
-      value: fmtMoney(m.revenue),
+      value: m.revenue,
+      format: fmtMoney,
       tone: "neutral",
       title: "Orders that survived the whole journey",
     },
     {
       label: "Operating cost",
-      value: `${fmtMoney(m.costRate)}/h`,
+      value: m.costRate,
+      format: (n: number) => `${fmtMoney(n)}/h`,
       tone: "neutral",
       title: "Burn rate of the current configuration",
     },
     {
       label: "Open issues",
-      value: fmtInt(m.issues),
+      value: m.issues,
+      format: fmtInt,
       tone: m.issues > 60 ? "danger" : m.issues > 18 ? "warn" : "ok",
       title: "Unresolved support conversations",
     },
     {
       label: "Stock level",
-      value: fmtPct(m.stock),
+      value: m.stock,
+      format: fmtPct,
       tone: toneFor(m.stock, 45, 20),
       title: "Inventory on the shelves",
     },
   ];
 
+  // One frame loop eases every figure toward its target and writes the text
+  // directly; it idles to a few comparisons per frame once everything settles.
+  const ddRefs = useRef<(HTMLElement | null)[]>([]);
+  const shown = useRef<number[]>(cells.map((c) => c.value));
+  const live = useRef(cells);
+  live.current = cells;
+
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      raf = requestAnimationFrame(step);
+      const delta = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const reduced = useUIStore.getState().reducedMotion;
+      const k = damp(9, delta);
+      for (let i = 0; i < live.current.length; i++) {
+        const target = live.current[i].value;
+        const current = shown.current[i] ?? target;
+        const next =
+          reduced || Math.abs(target - current) < 0.01 ? target : current + (target - current) * k;
+        if (next === current) continue;
+        shown.current[i] = next;
+        const el = ddRefs.current[i];
+        if (el) el.textContent = live.current[i].format(next);
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
     <dl className="metrics-strip" aria-label="Live system metrics">
-      {cells.map((c) => (
+      {cells.map((c, i) => (
         <div key={c.label} className={`metric-cell tone-${c.tone}`} title={c.title}>
           <dt>{c.label}</dt>
-          <dd>{c.value}</dd>
+          <dd
+            ref={(el) => {
+              ddRefs.current[i] = el;
+            }}
+          >
+            {c.format(shown.current[i] ?? c.value)}
+          </dd>
         </div>
       ))}
     </dl>

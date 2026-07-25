@@ -20,59 +20,64 @@ export function Chapter08Finale() {
   const visibleLinks = CONTACT_LINKS.filter((l) => l.href);
 
   return (
-    <ChapterSection ch={ch} heightClass="min-h-[160vh]" className="finale">
-      <div className="chapter-layout is-center">
-        <div className="chapter-copy is-center">
-          <ChapterHeading ch={ch} size="lg" />
+    <>
+      <ChapterSection ch={ch} heightClass="min-h-[160vh]" className="finale">
+        <div className="chapter-layout is-center">
+          <div className="chapter-copy is-center">
+            <ChapterHeading ch={ch} size="lg" />
 
-          <div ref={ctaRef} className="finale-actions">
-            <div className="finale-buttons" data-reveal>
-              <button type="button" className="btn btn-primary" onClick={() => setLabOpen(true)}>
-                {UI_STRINGS.enterLab}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => restartExperience(false)}
-              >
-                {UI_STRINGS.exploreAgain}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => scrollToAnchor("ch-creator")}
-              >
-                {UI_STRINGS.viewProjects}
-              </button>
-              {email && (
-                <a className="btn btn-ghost" href={email.href}>
-                  {UI_STRINGS.contactMe}
-                </a>
-              )}
-              <a className="btn btn-ghost" href="/case-study">
-                View Project Case Study
-              </a>
-            </div>
-
-            <ul className="finale-links" data-reveal>
-              {visibleLinks.map((link) => (
-                <li key={link.id}>
-                  <a
-                    href={link.href}
-                    {...(link.href.startsWith("http")
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                  >
-                    {link.label}
+            <div ref={ctaRef} className="finale-actions">
+              <div className="finale-buttons" data-reveal>
+                <button type="button" className="btn btn-primary" onClick={() => setLabOpen(true)}>
+                  {UI_STRINGS.enterLab}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => restartExperience(false)}
+                >
+                  {UI_STRINGS.exploreAgain}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => scrollToAnchor("ch-creator")}
+                >
+                  {UI_STRINGS.viewProjects}
+                </button>
+                {email && (
+                  <a className="btn btn-ghost" href={email.href}>
+                    {UI_STRINGS.contactMe}
                   </a>
-                  <span className="finale-link-desc">{link.description}</span>
-                </li>
-              ))}
-            </ul>
+                )}
+                <a className="btn btn-ghost" href="/case-study">
+                  View Project Case Study
+                </a>
+              </div>
+
+              <ul className="finale-links" data-reveal>
+                {visibleLinks.map((link) => (
+                  <li key={link.id}>
+                    <a
+                      href={link.href}
+                      {...(link.href.startsWith("http")
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
+                    >
+                      {link.label}
+                    </a>
+                    <span className="finale-link-desc">{link.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
-      </div>
+      </ChapterSection>
 
+      {/* The colophon is the page's, not the chapter's — keeping it outside
+          the held viewport means the closing question and its actions always
+          fit the screen, on a phone as much as on a desktop. */}
       <footer className="colophon">
         <p className="tech-label">TIM-01 · END OF TRANSMISSION</p>
         <p>
@@ -84,6 +89,6 @@ export function Chapter08Finale() {
           · a deterministic business simulation
         </p>
       </footer>
-    </ChapterSection>
+    </>
   );
 }

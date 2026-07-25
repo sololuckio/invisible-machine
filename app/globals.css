@@ -1643,15 +1643,19 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 
 @media (max-width: 640px) {
+  .finale .chapter-sticky {
+    padding-top: 5.4rem;
+    padding-bottom: 2.6rem;
+  }
   .finale .chapter-heading.size-lg .chapter-title {
-    font-size: clamp(2rem, 8.4vw, 2.9rem);
+    font-size: clamp(1.9rem, 7.8vw, 2.7rem);
   }
   .finale-actions {
-    margin-top: 1.8rem;
+    margin-top: 1.5rem;
   }
   .finale-links {
-    margin-top: 1.9rem;
-    gap: 1.4rem;
+    margin-top: 1.5rem;
+    gap: 1.2rem;
   }
   /* Full-width targets: nothing important sits on a 40px tap area. */
   .finale-buttons .btn {

@@ -15,6 +15,24 @@ Built as a portfolio showcase of creative development, systems thinking, simulat
 3D/graphics engineering, accessibility and performance work. A concise technical case study
 lives at `/case-study` for visitors who want the engineering story without the journey.
 
+**Direction.** One stage director decides what the experience is doing at any moment, and every
+layer reads from it, so the picture, the traffic, the chrome and the sound can never disagree.
+`lib/stage.ts` resolves the current *beat* (stillness → instability → ignition → release →
+descent → hero → pressure → rising → compression → lock → inspect → prescan → scan →
+restructure → managed → reflect → closure), an *energy* level that paces every animation, and a
+*cinematic / control* verdict.
+
+Five scenes carry the site and everything else supports them: the surface opening, the hero
+order's journey, the bottleneck forming, the intelligence scan and restructuring, and the final
+closure. Each is staged as anticipation → a readable action → a climax → a settle.
+
+**Cinematic and control modes.** During story beats the instrumentation recedes so the machine
+has the stage; during working beats it is fully present. Nothing is removed from the DOM,
+nothing loses pointer events, and hovering or focusing anything restores it immediately — the
+visitor always outranks the story. Touching a console keeps that chapter in control mode, the
+System Lab is always control mode, and `prefers-reduced-motion` never enters cinematic mode at
+all.
+
 **Art direction.** The machine is precision infrastructure, not a neon demo: a disciplined
 material kit (structural graphite, machined shells, recessed panels, small self-lit details),
 one signal colour for flow, a warm tone for customer orders, a separate pale voice for the
@@ -69,10 +87,12 @@ components/
   ui/                   Chrome (nav, boot sequence, settings, sliders, icons,
                         screen-reader status channel)
 data/                   All copy, site config, projects — no copy in components
-hooks/                  Simulation loop, chapter director, sound director,
-                        environment probe, GSAP reveals
-lib/                    Audio synth, formatting, quality tiers, storage,
-                        palette, scroll state, shared journey actions
+hooks/                  Simulation loop, stage director (the beat map),
+                        chapter director, sound director, environment probe,
+                        directed GSAP reveals
+lib/                    Stage/beat model, motion tokens, audio synth,
+                        formatting, quality tiers, storage, palette, scroll
+                        state, shared journey actions
 simulation/             The pure engine (see below) — no React imports
 store/                  Zustand stores (simulation runtime, UI state)
 tests/                  Vitest suites (engine + component smoke tests)
@@ -170,7 +190,10 @@ or push the repository to Vercel/Netlify with default Next.js settings. Before d
 
 - The Open Graph image is generated at request/build time by `app/opengraph-image.tsx`
   (satori); customise it there if you want a designed bitmap instead.
-- The sound layer is intentionally minimal (synthesised ambience + event tones) and stays off
-  until the visitor enables it.
+- The sound layer is fully synthesised (oscillators, one generated noise buffer, a few filters —
+  no audio files) and stays off until the visitor enables it. It is direction, not information:
+  nothing in the experience depends on hearing it.
+- Depth of field is deliberately not used. It would need a full-scene post-processing pass for a
+  small gain, and the depth here comes from architecture, fog and lighting instead.
 - The simulation is a believable abstraction, not an economics model — units are honest
   relative to each other, not calibrated to any real business.
