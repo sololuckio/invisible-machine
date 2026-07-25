@@ -35,7 +35,27 @@ export function AIPanel() {
   const resetScan = useUIStore((s) => s.resetScan);
   const analysis = useSimStore((s) => s.analysis);
   const applyRec = useSimStore((s) => s.applyRec);
-  const stale = useSimStore((s) => s.analysisStale);
+  const dialMoved = useSimStore((s) => s.analysisStale);
+  /**
+   * Whether the machine itself has moved away from what was analysed.
+   *
+   * Refreshing when a dial moves is not enough: dragging a control has no
+   * consequences for many cycles, so the reading taken moments later is the
+   * state *before* anything happened. That is how the console came to be
+   * announcing balanced flow and no constraint while payment sat at 126
+   * queued orders. This watches the outcome instead.
+   */
+  const drifted = useSimStore((s) => {
+    const basis = s.analysisBasis;
+    if (!basis || !s.analysis) return false;
+    const m = s.sim.metrics;
+    return (
+      s.sim.bottleneck !== basis.bottleneck ||
+      Math.abs(m.systemHealth - basis.health) >= 5 ||
+      Math.abs(m.totalQueue - basis.queue) >= 30
+    );
+  });
+  const stale = dialMoved || drifted;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -56,13 +76,14 @@ export function AIPanel() {
     if (orphaned) resetScan();
   }, [orphaned, resetScan]);
 
-  // The Lab keeps the dials and this panel in one window, so a control change
-  // has to be reflected here without demanding a second, separate click.
-  // Debounced, so dragging a slider recomputes once it settles rather than on
-  // every pixel.
+  // The Lab keeps the dials and this panel in one window, so the reading has
+  // to keep up without demanding a separate click. Debounced, so a slider
+  // being dragged settles once rather than recomputing per pixel, and so a
+  // machine that is still degrading is re-read after it has moved rather than
+  // on every tick.
   useEffect(() => {
     if (!stale || scanStatus !== "complete") return;
-    const t = setTimeout(() => useSimStore.getState().runAnalysis(), 420);
+    const t = setTimeout(() => useSimStore.getState().runAnalysis(), 700);
     return () => clearTimeout(t);
   }, [stale, scanStatus]);
 

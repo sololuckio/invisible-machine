@@ -8,6 +8,7 @@ import type {
   Analysis,
   Comparison,
   Controls,
+  NodeId,
   Recommendation,
   ScenarioId,
   SimState,
@@ -29,6 +30,13 @@ interface SimStore {
    * panel can say the numbers are behind without throwing them away.
    */
   analysisStale: boolean;
+  /**
+   * What the machine looked like when the analysis was computed. A reading
+   * goes out of date because the *machine* changed, not because a dial moved:
+   * dragging a control has no consequences for many cycles, so refreshing on
+   * the control change alone captures the state before anything happened.
+   */
+  analysisBasis: { bottleneck: NodeId | null; health: number; queue: number } | null;
   /**
    * Titles of applied advice, by id. The analysis drops advice once it has
    * been taken, so its wording is gone from state the moment it is applied —
@@ -69,6 +77,7 @@ export const useSimStore = create<SimStore>()((set, get) => ({
   appliedPulse: 0,
   lastAppliedRec: null,
   analysisStale: false,
+  analysisBasis: null,
   appliedHistory: {},
 
   tick: () => {
@@ -103,6 +112,7 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       comparison: null,
       userTouched: false,
       analysisStale: false,
+      analysisBasis: null,
       appliedHistory: {},
     }),
 
@@ -114,13 +124,23 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       comparison: null,
       userTouched: false,
       analysisStale: false,
+      analysisBasis: null,
       appliedHistory: {},
     });
   },
 
   runAnalysis: () => {
-    const analysis = analyze(get().sim);
-    set({ analysis, analysisStale: false });
+    const { sim } = get();
+    const analysis = analyze(sim);
+    set({
+      analysis,
+      analysisStale: false,
+      analysisBasis: {
+        bottleneck: sim.bottleneck,
+        health: sim.metrics.systemHealth,
+        queue: sim.metrics.totalQueue,
+      },
+    });
     return analysis;
   },
 
@@ -138,6 +158,11 @@ export const useSimStore = create<SimStore>()((set, get) => ({
       // place — acting on one no longer costs you the other two.
       analysis: analyze(next),
       analysisStale: false,
+      analysisBasis: {
+        bottleneck: next.bottleneck,
+        health: next.metrics.systemHealth,
+        queue: next.metrics.totalQueue,
+      },
     });
   },
 
