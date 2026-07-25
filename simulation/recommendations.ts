@@ -1,5 +1,6 @@
 import { effectiveCapacity } from "./engine";
 import { NODE_MAP } from "./nodes";
+import { canStillHelp } from "./apply";
 import type { Analysis, Recommendation, SimState } from "./types";
 
 /**
@@ -194,13 +195,11 @@ export function analyze(state: SimState): Analysis {
   }
 
   recs.sort((a, b) => b.score - a.score);
-  // Advice that has been taken is gone for good. There used to be a fallback
-  // here that re-offered the whole list once everything had been applied, so
-  // the panel was never empty — but `applyRecommendation` refuses to apply the
-  // same recommendation twice, so those were buttons that could not do
-  // anything. Returning nothing is the honest answer, and the console has a
-  // state for it.
-  const finalRecs = recs.filter((r) => !state.appliedRecommendations.includes(r.id));
+  // Only offer advice that can still move something. Filtering on "has this
+  // been applied before" instead produced buttons that could not do anything
+  // and, worse, a console that declared itself finished while the machine was
+  // still visibly broken. See `canStillHelp`.
+  const finalRecs = recs.filter((r) => canStillHelp(state, r));
 
   return {
     narrative: buildNarrative(state, finalRecs),

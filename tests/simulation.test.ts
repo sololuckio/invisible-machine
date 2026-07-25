@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyRecommendation } from "@/simulation/apply";
+import { applyRecommendation, canStillHelp } from "@/simulation/apply";
 import { runComparison } from "@/simulation/compare";
 import {
   createInitialState,
@@ -166,29 +166,36 @@ describe("recommendation engine", () => {
     expect(a.recommendations[0].id).toBe("raise-automation-baseline");
   });
 
-  it("runs out rather than re-offering advice already taken", () => {
-    // Regression: a fallback used to re-offer the entire list once everything
-    // had been applied, so the console showed Apply buttons that could not
-    // change anything — clicking them forever did nothing at all.
-    let s = createInitialState("viral", SCENARIOS.viral.controls, SCENARIOS.viral.initialStock);
+  it("keeps offering advice while a lever can still move, and stops when none can", () => {
+    // Advice used to be consumed by id, so a breakdown could sit at 12% stock
+    // with fulfilment critical while the console announced there was nothing
+    // left to try — even though staff, inventory and speed all had room. What
+    // makes advice worth repeating is the lever, not the history.
+    let s = createInitialState(
+      "breakdown",
+      SCENARIOS.breakdown.controls,
+      SCENARIOS.breakdown.initialStock,
+    );
     s = runCycles(s, 100);
-    for (let i = 0; i < 12; i++) {
+    const trappedAtWorst = s.metrics.trappedRevenue;
+
+    let rounds = 0;
+    for (; rounds < 40; rounds++) {
       const { recommendations } = analyze(s);
-      for (const rec of recommendations) {
-        expect(
-          s.appliedRecommendations,
-          `re-offered "${rec.id}" after it was applied`,
-        ).not.toContain(rec.id);
-      }
       if (recommendations.length === 0) break;
+      // Nothing is ever offered that cannot change something.
+      for (const rec of recommendations) {
+        expect(canStillHelp(s, rec), `offered a spent recommendation: ${rec.id}`).toBe(true);
+      }
       s = applyRecommendation(s, recommendations[0]);
-      s = runCycles(s, 5);
+      s = runCycles(s, 40);
     }
-    // Everything the engine can see for this state has now been taken.
-    const exhausted = analyze(s);
-    for (const rec of exhausted.recommendations) {
-      expect(s.appliedRecommendations).not.toContain(rec.id);
-    }
+
+    expect(rounds).toBeGreaterThan(3); // repeats are allowed
+    expect(rounds).toBeLessThan(40); // and self-limiting: it does terminate
+    // Following the engine's own advice to exhaustion has to actually work.
+    expect(s.metrics.systemHealth).toBeGreaterThan(70);
+    expect(s.metrics.trappedRevenue).toBeLessThan(trappedAtWorst / 4);
   });
 
   it("does not repeat advice that has already been applied", () => {
