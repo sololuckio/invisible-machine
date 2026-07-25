@@ -196,9 +196,14 @@ try {
   await probeOverflow("CH.03 in view, All-controls collapsed");
 
   if (OPEN_CONTROLS) {
-    await page.locator(".control-more-toggle").first().click({ force: true });
-    await sleep(900);
-    await probeOverflow("All-controls EXPANDED");
+    const toggle = page.locator(".control-more-toggle").first();
+    if (await toggle.count()) {
+      await toggle.click({ force: true });
+      await sleep(900);
+      await probeOverflow("All-controls EXPANDED");
+    } else {
+      console.log("\n[3b] no All-controls disclosure in this build (all six dials are shown)");
+    }
   }
 
   console.log("\n[4] SEVEN SWIPES FROM CH.03 (the reported repro)");

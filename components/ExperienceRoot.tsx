@@ -3,7 +3,6 @@
 import { ScrollTracker } from "@/components/chapters/ScrollTracker";
 import { ExperienceCanvas } from "@/components/experience/ExperienceCanvas";
 import { LabOverlay } from "@/components/system/LabOverlay";
-import { StickyReadout } from "@/components/system/StickyReadout";
 import { BootOverlay } from "@/components/ui/BootOverlay";
 import { ScrollNudge } from "@/components/ui/ScrollNudge";
 import { Nav } from "@/components/ui/Nav";
@@ -31,7 +30,6 @@ export function ExperienceRoot() {
       <ExperienceCanvas />
       <ScrollTracker />
       <Nav />
-      <StickyReadout />
       <ScrollNudge />
       <BootOverlay />
       <LabOverlay />
