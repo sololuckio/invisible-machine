@@ -170,9 +170,9 @@ const LIGHT_STATES: Record<string, LightState> = {
   // Growth: more of everything, the plant working harder.
   growth: { ambient: 0.35, hemi: 1.32, key: 1.92, counter: 0.72, signal: 60, focus: 0, scan: 0, clinical: 0 },
   // Pressure building: fill starts to withdraw, the constraint starts to tell.
-  strain: { ambient: 0.23, hemi: 0.88, key: 1.48, counter: 0.48, signal: 42, focus: 34, scan: 0, clinical: 0 },
+  strain: { ambient: 0.23, hemi: 0.88, key: 1.48, counter: 0.48, signal: 42, focus: 22, scan: 0, clinical: 0 },
   // The lock: contrast at maximum, everything irrelevant in shadow.
-  failure: { ambient: 0.12, hemi: 0.46, key: 0.98, counter: 0.26, signal: 15, focus: 105, scan: 0, clinical: 0 },
+  failure: { ambient: 0.12, hemi: 0.46, key: 0.98, counter: 0.26, signal: 15, focus: 62, scan: 0, clinical: 0 },
   // Intelligence: clinical, flat, analytical — measurement light, not mood.
   intel: { ambient: 0.38, hemi: 1.04, key: 1.36, counter: 0.32, signal: 15, focus: 26, scan: 74, clinical: 1 },
   // Recovery: harmony and confidence, balanced rather than bright.
@@ -275,7 +275,7 @@ function LightDirector() {
       <directionalLight ref={key} position={[6, 10, 7]} intensity={2.05} color="#e4ecff" />
       <directionalLight ref={counter} position={[-8, -6, -5]} intensity={0.36} color="#3d5c6e" />
       <pointLight ref={signal} position={[0, -8, 5]} intensity={24} distance={28} color={PALETTE.signal} />
-      <pointLight ref={focus} visible={false} intensity={0} distance={11} color={PALETTE.danger} />
+      <pointLight ref={focus} visible={false} intensity={0} distance={7.2} color={PALETTE.danger} />
       <pointLight ref={scan} visible={false} intensity={0} distance={17} color={PALETTE.intel} />
       <pointLight position={[0, -19.4, 3]} intensity={18} distance={16} color={PALETTE.warn} />
     </>
@@ -293,8 +293,12 @@ function useShaftLayout() {
     const COLS = 10;
     for (let i = 0; i < COLS; i++) {
       const a = (i / COLS) * Math.PI * 2 + 0.31;
-      // Leave the camera's usual approach corridor open.
+      // Leave the camera's usual approach corridor open, and drop the column
+      // that stands dead centre in front: the closure and the network reveal
+      // are both framed straight down +Z, and a post through the middle of a
+      // hero frame is an accident, not composition.
       if (Math.abs(Math.sin(a - Math.PI / 2)) > 0.94) continue;
+      if (Math.sin(a) > 0.94) continue;
       columns.push({
         pos: [Math.cos(a) * SHAFT_R, (SHAFT_TOP + SHAFT_BOTTOM) / 2, Math.sin(a) * SHAFT_R],
         rotY: -a,

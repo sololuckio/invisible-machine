@@ -3,7 +3,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { clamp01, damp, easeInOut, span } from "@/lib/motion";
+import { clamp01, damp, easeInOut, easeOutQuint } from "@/lib/motion";
 import { isCoarsePointer } from "@/lib/quality";
 import { scrollState } from "@/lib/scrollState";
 import { PRESSURE_STAGES, stageState } from "@/lib/stage";
@@ -17,12 +17,14 @@ import { HERO_CURVE, heroAt } from "./curves";
  * centred view of the same machine:
  *
  *   1  hovering over the surface, then peering down through the split
- *   2  a six-shot sequence around the hero order — establishing, side track,
- *      reverse flank, station entry, macro detail, network reveal
+ *   2  a seven-shot sequence around the hero order — establishing, side track,
+ *      reverse flank, station entry, macro detail, route level, and a long
+ *      pull back until the whole spine is in frame
  *   3  the control room: the spine framed between copy and console
- *   4  a slow push from operational-wide to a locked three-quarter on the
- *      constraint the engine actually found
- *   5  a step back — the whole working depth, stable, ready to be measured
+ *   4  an investigation: wide, then down the queue, then onto the constraint
+ *      the engine actually found, then a half-step back to read it
+ *   5  a step back — the whole working depth, stable, ready to be measured,
+ *      closing in while the scan actually runs
  *   6  long frontal elevation, both fates readable
  *   7  low reverse angle: the machine as a built object
  *   8  the whole organism, then a rise up the shaft to the closing seam
@@ -70,8 +72,10 @@ const HERO_SHOTS: { x: number; off: [number, number, number]; look: [number, num
   { x: 0.67, off: [-2.0, 0.55, 2.4], look: [0, -0.05, 0] },
   // Route level — back out far enough to see where it goes next.
   { x: 0.81, off: [3.4, 1.2, 4.4], look: [0, -0.6, 0] },
-  // Network reveal: the whole lower machine, order arriving at the ledger.
-  { x: 1.0, off: [6.8, 2.6, 11.2], look: [0, -3.6, 0] },
+  // Network reveal: a long pull back and up as the order lands, until the
+  // entire descending spine is in frame at once. The order finishes small,
+  // which is the point of the chapter — one order, eight systems.
+  { x: 1.0, off: [4.8, 9.6, 17.2], look: [0, 7.4, 0] },
 ];
 
 /** Chapter 8's closure: whole organism → rise → rest above the healed seam. */
@@ -96,30 +100,76 @@ export function CameraRig() {
   // Two scratch poses so a blend can hold "from" and "to" without allocating.
   const scratchA = useRef<Pose>({ p: [0, 0, 0], t: [0, 0, 0] });
   const scratchB = useRef<Pose>({ p: [0, 0, 0], t: [0, 0, 0] });
+  // How far the intelligence chapter has closed in on the machine.
+  const scanPush = useRef(0);
 
   /**
-   * Chapter 4: a slow push from an operational-wide framing onto the station
-   * the engine actually named, tightening as the constraint compresses.
+   * Chapter 4, staged as an investigation rather than a move.
+   *
+   * A camera that flies straight at the broken station has told the visitor
+   * the answer before they have seen the evidence. So it works the way a
+   * person would: notice the system slowing, find the queue, follow it
+   * upstream to whatever it is piling up behind, and only then commit.
+   *
+   *   0  wide      the whole working depth, traffic visibly thickening
+   *   1  the queue at the upstream end of the backlog, looking down its length
+   *   2  the cause arriving on the constraint, and stopping there
+   *   3  hold      a half-step back so the instruments can be read
+   *
+   * Every framing is derived from the station the engine actually named, so
+   * the sequence is as honest in the Lab or a different scenario as it is on
+   * the scripted path.
    */
-  const constraintPose = (out: Pose): Pose => {
+  const constraintKey = (i: number, out: Pose): Pose => {
     const sim = useSimStore.getState().sim;
     const id = sim.bottleneck ?? "fulfilment";
-    const [x, y, z] = NODE_MAP[id].position;
-    const k = easeInOut(
-      span(scrollState.chapterFloat - 4, PRESSURE_STAGES.rising, PRESSURE_STAGES.lock),
-    );
-    out.p[0] = x + THREE.MathUtils.lerp(5.6, 3.0, k);
-    out.p[1] = y + THREE.MathUtils.lerp(4.4, 2.5, k);
-    out.p[2] = z + THREE.MathUtils.lerp(9.8, 5.6, k);
-    out.t[0] = x + THREE.MathUtils.lerp(0.2, -0.6, k);
-    out.t[1] = y + THREE.MathUtils.lerp(1.2, 0.45, k);
-    out.t[2] = z;
+    const def = NODE_MAP[id];
+    const [x, y, z] = def.position;
+    const upId = def.upstream[0];
+    const up = upId ? NODE_MAP[upId].position : ([x, y + 3, z] as const);
+
+    if (i === 0) {
+      // Operational wide: the system, not the station.
+      out.p[0] = x + 6.4;
+      out.p[1] = y + 5.6;
+      out.p[2] = z + 11.4;
+      out.t[0] = x - 0.2;
+      out.t[1] = y + 2.8;
+      out.t[2] = z;
+    } else if (i === 1) {
+      // On the queue, up at the far end of the backlog.
+      out.p[0] = THREE.MathUtils.lerp(up[0], x, 0.3) + 4.3;
+      out.p[1] = THREE.MathUtils.lerp(up[1], y, 0.3) + 1.9;
+      out.p[2] = THREE.MathUtils.lerp(up[2], z, 0.3) + 6.4;
+      out.t[0] = THREE.MathUtils.lerp(up[0], x, 0.82);
+      out.t[1] = THREE.MathUtils.lerp(up[1], y, 0.82) + 0.5;
+      out.t[2] = THREE.MathUtils.lerp(up[2], z, 0.82);
+    } else if (i === 2) {
+      // The cause. Tight three-quarter, and this is where it stops.
+      out.p[0] = x + 3.0;
+      out.p[1] = y + 2.3;
+      out.p[2] = z + 5.2;
+      out.t[0] = x - 0.5;
+      out.t[1] = y + 0.4;
+      out.t[2] = z;
+    } else {
+      // Hold: half a step back, instruments readable, nothing moving.
+      out.p[0] = x + 4.4;
+      out.p[1] = y + 3.0;
+      out.p[2] = z + 7.6;
+      out.t[0] = x - 0.2;
+      out.t[1] = y + 0.7;
+      out.t[2] = z;
+    }
     return out;
   };
 
+  /** Where each investigation beat lands within the chapter. */
+  const CONSTRAINT_AT = [0, PRESSURE_STAGES.compression, PRESSURE_STAGES.lock, 0.9];
+
   const poseAt = (k: number, scratch: Pose): Pose => {
     if (k <= 2) return SURFACE_B;
-    if (k === 4) return constraintPose(scratch);
+    if (k === 4) return constraintKey(3, scratch);
     return POSES[Math.min(k, 8)] ?? POSES[8];
   };
 
@@ -159,6 +209,26 @@ export function CameraRig() {
         heroPos.y + THREE.MathUtils.lerp(from.look[1], to.look[1], k),
         heroPos.z + THREE.MathUtils.lerp(from.look[2], to.look[2], k),
       );
+    } else if (cf < 5) {
+      // The investigation. Kept out of the generic chapter blender so the
+      // arrival on the constraint is a real stop rather than a waypoint on the
+      // way to chapter 5's framing.
+      const f = cf - 4;
+      let i = 0;
+      while (i < CONSTRAINT_AT.length - 2 && f >= CONSTRAINT_AT[i + 1]) i++;
+      const raw = clamp01((f - CONSTRAINT_AT[i]) / (CONSTRAINT_AT[i + 1] - CONSTRAINT_AT[i]));
+      // Heavy deceleration onto the constraint; even easing elsewhere.
+      const k = i === 1 ? easeOutQuint(raw) : easeInOut(raw);
+      const from = constraintKey(i, scratchA.current);
+      const to = constraintKey(i + 1, scratchB.current);
+      desiredPos.set(...from.p).lerp(a.set(...to.p), k);
+      desiredTgt.set(...from.t).lerp(b.set(...to.t), k);
+      // Hand over to chapter 5 only at the very end of the chapter.
+      if (f > 0.9) {
+        const h = easeInOut(clamp01((f - 0.9) / 0.1));
+        desiredPos.lerp(a.set(...POSES[5].p), h);
+        desiredTgt.lerp(b.set(...POSES[5].t), h);
+      }
     } else if (cf >= 7.5) {
       // The closure: three staged framings, blended, never a reverse animation.
       let i = 0;
@@ -175,6 +245,17 @@ export function CameraRig() {
       const to = poseAt(k + 1, scratchB.current);
       desiredPos.set(...from.p).lerp(a.set(...to.p), frac);
       desiredTgt.set(...from.t).lerp(b.set(...to.t), frac);
+    }
+
+    // The intelligence layer earns a move of its own: while the scan is
+    // actually running the camera closes in, so the measurement is something
+    // the visitor is brought to rather than shown from across the room. It
+    // eases back out the moment the scan finishes.
+    if (!ui.reducedMotion && cf >= 4.9 && cf < 6.2) {
+      scanPush.current += ((stageState.beat === "scan" ? 1 : 0) - scanPush.current) * damp(1.3, delta);
+      if (scanPush.current > 0.002) {
+        desiredPos.lerp(desiredTgt, 0.24 * scanPush.current);
+      }
     }
 
     // Narrow viewports: pull back along the view axis so compositions are
