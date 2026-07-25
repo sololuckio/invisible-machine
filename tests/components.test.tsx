@@ -132,6 +132,34 @@ describe("AIPanel", () => {
     expect(screen.getByText(new RegExp(first.title))).toBeInTheDocument();
   });
 
+  it("makes advice eligible again once the dials change the system", () => {
+    // The System Lab puts the controls and the intelligence layer in one
+    // window. If taken advice were consumed forever the Lab would go dead
+    // after three applies and could not be experimented with at all.
+    useSimStore.getState().loadScenario("viral");
+    useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 100) });
+    const first = useSimStore.getState().runAnalysis().recommendations[0];
+    useSimStore.getState().applyRec(first);
+    expect(useSimStore.getState().sim.appliedRecommendations).toContain(first.id);
+
+    // Changing a dial means the advice was taken against a system that is gone.
+    useSimStore.getState().setControl("staff", 20);
+    expect(useSimStore.getState().sim.appliedRecommendations).toEqual([]);
+
+    // It is offerable and appliable again — but only because the engine's own
+    // conditions re-trip, not because the guard was simply removed.
+    useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 40) });
+    const again = useSimStore.getState().runAnalysis().recommendations;
+    expect(again.length).toBeGreaterThan(0);
+    const staffBefore = useSimStore.getState().sim.controls.staff;
+    useSimStore.getState().applyRec(again[0]);
+    expect(useSimStore.getState().sim.controls).not.toEqual({
+      ...useSimStore.getState().sim.controls,
+      staff: staffBefore - 1,
+    });
+    expect(useSimStore.getState().sim.appliedRecommendations).toContain(again[0].id);
+  });
+
   it("only asks to re-analyse once the state it read has moved", () => {
     useSimStore.getState().loadScenario("viral");
     useSimStore.setState({ sim: runCycles(useSimStore.getState().sim, 100) });

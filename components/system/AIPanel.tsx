@@ -113,10 +113,7 @@ export function AIPanel() {
               ))}
             </ol>
           ) : (
-            <p className="ai-hint ai-exhausted">
-              Every intervention the engine can see has been applied. Watch the machine settle, or
-              push the dials somewhere new and analyse again.
-            </p>
+            <p className="ai-hint ai-exhausted">{UI_STRINGS.recommendationsExhausted}</p>
           )}
 
           {/* One action, one place. It only asks to be pressed once the state

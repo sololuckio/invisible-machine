@@ -153,6 +153,13 @@ export const UI_STRINGS = {
   scanning: "Scanning system state…",
   applyRecommendation: "Apply recommendation",
   reAnalyse: "Re-analyse",
+  /**
+   * Shown when every intervention has been taken. Moving a dial makes advice
+   * eligible again — the operator has changed the system it was taken against
+   * — so pointing at the dials is honest, not a dead instruction.
+   */
+  recommendationsExhausted:
+    "Every intervention the engine can see has been applied. Move the dials and it will have something new to say — or “Explore the system again” at the end of the journey resets the whole system without losing your place.",
   stateMoved: "state has moved",
   applied: "Applied",
   runComparison: "Run the comparison",

@@ -83,7 +83,19 @@ export const useSimStore = create<SimStore>()((set, get) => ({
     const { sim, analysis } = get();
     set({
       userTouched: true,
-      sim: { ...sim, controls: { ...sim.controls, [key]: value } },
+      sim: {
+        ...sim,
+        controls: { ...sim.controls, [key]: value },
+        // Advice was taken against a system that no longer exists, so it stops
+        // counting as taken. The engine still only offers it again if its
+        // conditions genuinely re-trip — re-recommending more fulfilment
+        // capacity after the operator has cut staff back down is correct, not
+        // a repeat. Without this the System Lab, where the dials and the
+        // intelligence layer share a single window, goes dead after three
+        // applies and cannot be experimented with at all.
+        appliedRecommendations: [],
+      },
+      appliedHistory: {},
       // Moving a dial dates the advice. Flag it rather than clearing it —
       // wiping the panel every time a slider twitches is what made the
       // intelligence console feel like it kept resetting itself.
