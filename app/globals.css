@@ -2280,16 +2280,18 @@ input[type="range"]:active::-webkit-slider-thumb {
 /* ============================================================
    Mobile scroll integrity (<768px)
 
-   The console was a scroll trap. `.chapter-console` carried
+   The console was a scroll trap: `.chapter-console` carried
    `overflow-y: auto` + `overscroll-behavior: contain`, so once a
-   thumb landed on it the page could not move: the panel absorbed
+   thumb landed on it the page could not move — the panel absorbed
    the gesture while it had slack, and `contain` blocked chaining
    to the document once it did not. Measured from the top of the
    page, scrolling advanced cleanly until the pointer entered the
    console, then produced exactly zero pixels indefinitely.
 
-   The fix is to remove the internal scroller rather than tune the
-   chaining. Page scroll always wins.
+   Removing the internal scroller is the whole fix. The sticky pin
+   was never the problem, and un-pinning these chapters cost the
+   held, cinematic pacing that makes the mobile read work — so the
+   pin stays exactly as it was.
    ============================================================ */
 
 @media (max-width: 767px) {
@@ -2300,27 +2302,20 @@ input[type="range"]:active::-webkit-slider-thumb {
     padding-right: 0;
   }
 
-  /* A sticky box taller than the viewport can never be scrolled to its own
-     end, so chapters whose content exceeds one screen — the four console
-     chapters and the creator — flow in the normal document instead of
-     pinning. The machine behind them still animates from scroll position. */
-  .chapter:has(.chapter-layout.is-console) .chapter-sticky,
-  #ch-creator .chapter-sticky {
+  /* The one case where content genuinely cannot fit a pinned screen: with
+     the disclosure open the console roughly doubles in height, and a sticky
+     box taller than the viewport can never be scrolled to its own end. That
+     single chapter flows until the visitor collapses it again. */
+  .chapter:has(.control-more.is-open) .chapter-sticky {
     position: static;
-    min-height: 0;
-    padding: 6.5rem 0 5.5rem;
-    align-items: flex-start;
-  }
-  /* Still at least a screenful each, so chapter tracking stays sane and a
-     section never ends up shorter than the viewport it is meant to fill. */
-  .chapter:has(.chapter-layout.is-console),
-  #ch-creator {
     min-height: 100svh;
+    align-items: flex-start;
+    padding: 6.5rem 0 5.5rem;
   }
 
-  /* Pin budget for the chapters that still hold the screen: no more than
-     ~1.5 viewports of scroll-past, so every swipe produces visible progress.
-     CH.01 (1.4) and CH.08 (0.6) are already inside it; CH.02 was 1.8. */
+  /* Pin budget: no chapter holds the screen for more than ~1.5 viewports.
+     CH.01 (1.4), CH.03/04 (1.3), CH.05/06 (1.1) and CH.08 (0.6) are already
+     inside it; CH.02 was 1.8. */
   #ch-order {
     min-height: 250svh;
   }

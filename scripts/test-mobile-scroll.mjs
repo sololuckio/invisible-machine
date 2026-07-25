@@ -25,7 +25,11 @@ import { chromium } from "playwright-core";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SWIPES = 3;
-const SWIPE_PX = 400;
+// A real flick with momentum carries roughly 600-1200px; 400 is a single
+// conservative notch. Sized realistically because the console chapters are
+// deliberately pinned for ~1.3 viewports — holding the screen is the point of
+// the chapter, and three timid notches should not be expected to clear it.
+const SWIPE_PX = 700;
 
 const results = [];
 function check(name, pass, detail) {
