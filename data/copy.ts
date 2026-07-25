@@ -133,6 +133,17 @@ export const SYSTEM_OVERVIEW_TEXT = [
   "Applying a recommendation changes the running system and the machine visibly recovers. A before/after comparison runs the same scenario with and without these interventions and reports completed orders, processing time, fulfilment rate, satisfaction, cost, revenue and system health.",
 ] as const;
 
+/**
+ * Short labels for the scenario preset chips. The full names live with the
+ * presets in `simulation/scenarios.ts`; these are the compact forms a chip can
+ * actually carry, and they stay here because no copy belongs in a component.
+ */
+export const SCENARIO_SHORT: Record<"balanced" | "viral" | "breakdown", string> = {
+  balanced: "Balanced",
+  viral: "Viral spike",
+  breakdown: "Breakdown",
+};
+
 export const UI_STRINGS = {
   skipToContent: "Skip to content",
   skipIntro: "Skip intro",

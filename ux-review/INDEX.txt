@@ -1,0 +1,42 @@
+UX CAPTURE INDEX
+captured: 2026-07-25T16:03:30.792Z
+desktop 1440x900 dsf1 · mobile 390x844 dsf1 isMobile+hasTouch · JPEG q70
+
+01-first-paint.jpg
+    / at DOMContentLoaded, before three.js loads
+02-chapter-surface.jpg
+    CH.01 — The surface
+03-chapter-order.jpg
+    CH.02 — One order enters
+04-chapter-pressure.jpg
+    CH.03 — The system under pressure
+05-chapter-bottleneck.jpg
+    CH.04 — Bottleneck
+06-chapter-intelligence.jpg
+    CH.05 — Activate intelligence
+07-chapter-compare.jpg
+    CH.06 — Before & after
+08-chapter-creator.jpg
+    CH.07 — The creator
+09-chapter-cta.jpg
+    CH.08 — Transmission
+10-stress-demand90-staff30.jpg
+    CH.03 console + machine after 10s at demand 90 / staff 30
+11-bottleneck-inspector.jpg
+    CH.04 inspector open on the flagged station
+    note: Fulfilment
+12-intelligence-scan-result.jpg
+    CH.05 scan complete, ranked recommendations shown
+13-before-after-ledger.jpg
+    CH.06 comparison ledger populated
+14-no-webgl-diagram.jpg
+    CH.03 with WebGL disabled — 2D SVG fallback
+    note: SVG diagram present
+15-mobile-hero.jpg
+    Mobile 390×844 — hero / CH.01
+16-mobile-chapter-pressure.jpg
+    Mobile — CH.03 operator console
+17-mobile-chapter-bottleneck.jpg
+    Mobile — CH.04 machine at the constraint
+18-mobile-chapter-finale.jpg
+    Mobile — CH.08 finale

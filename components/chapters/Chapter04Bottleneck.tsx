@@ -1,6 +1,7 @@
 "use client";
 
 import { NodeInspector } from "@/components/system/NodeInspector";
+import { ScenarioChips } from "@/components/system/ScenarioChips";
 import { CHAPTERS } from "@/data/copy";
 import { NODE_MAP } from "@/simulation/nodes";
 import { useSimStore } from "@/store/simStore";
@@ -32,6 +33,11 @@ export function Chapter04Bottleneck() {
               </>
             )}
           </p>
+          {!bottleneck && (
+            <div className="bottleneck-empty-actions">
+              <ScenarioChips label="Load a preset that breaks" />
+            </div>
+          )}
         </div>
         <div className="chapter-console">
           <NodeInspector />

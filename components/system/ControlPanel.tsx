@@ -7,6 +7,7 @@ import { IconPause, IconPlay, IconReset } from "@/components/ui/icons";
 import { UI_STRINGS } from "@/data/copy";
 import type { Controls } from "@/simulation/types";
 import { useSimStore } from "@/store/simStore";
+import { ScenarioChips } from "./ScenarioChips";
 
 /**
  * The operator console. Six dials, honest consequences.
@@ -72,6 +73,7 @@ export function ControlPanel({ compact = false }: { compact?: boolean }) {
           </button>
         </div>
       </div>
+      <ScenarioChips />
       <div className="control-grid">
         {CONTROL_DEFS.map((def) => (
           <Slider
