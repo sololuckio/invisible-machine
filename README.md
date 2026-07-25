@@ -44,6 +44,34 @@ support array with an unresolved-issue reservoir, and stacked ledger discs. Orde
 oriented carriers with eased travel; conveyors are dark rails with illuminated cores whose
 packet speed is the feeding station's live throughput.
 
+**The plant.** The machine stands in a building, not a void. `lib/facility.ts` generates it
+deterministically at module load: walkways with handrails and toe boards, access doors,
+ladders with fall hoops, cable trays, cooling units, hazard markings, a maintenance hoist
+working its own ninety-second cycle, and blocks that carry on past the shaft. One world unit
+is one metre and every part is sized against that — the machine looks enormous because the
+handrail beside it is exactly hand-height. All of it is built in the **rear half** of the
+shaft, because the camera spends the whole journey on the other side; structure built there
+would sit between the visitor and the subject. Plant steel is also deliberately darker than
+any station surface, so the building stays where it belongs in the value range. Each layer is
+one `InstancedMesh`, so the entire plant costs five draw calls.
+
+**Materials.** Surfaces carry a world-space detail pass injected into the standard shader:
+low-frequency wear, a directional brushed grain, dust that settles only on upward faces, a
+whisper of albedo mottle, and a grazing-angle rim that finds machined edges and keeps
+silhouettes readable in a very dark room. No textures, no payload, one shared program. Metal
+behaves differently by job — structural, plant, shell, machined, heat-discoloured, worn —
+alongside glass, polymer and seal families, so the world is not milled from one billet.
+
+**Lighting** is five directed states driven by the beat: reveal, normal, growth, strain,
+failure, intelligence, recovery, calm. The failure state is the important one — it does not
+wash the scene red. It withdraws the fill, deepens shadow, quietens flow everywhere else and
+raises one hard local source on the station the engine actually named, so contrast does the
+work and the meaning survives without colour.
+
+**Mechanisms carry momentum.** Rotating parts spin up and coast down rather than matching a
+new tempo instantly; travelling parts accelerate away, decelerate into the stop and wait
+there. Machinery under load vibrates, below the threshold of notice and absent when idle.
+
 ## Technology
 
 - **Next.js 15** (App Router) + **React 19** + **TypeScript** (strict)
@@ -76,9 +104,10 @@ app/                    Layout, page, global CSS, SEO assets (robots, sitemap,
                         server-rendered /case-study recruiter page
 components/
   chapters/             The eight narrative chapters + scroll tracker
-  experience/           The 3D machine (canvas, stations, particles, pathways,
-                        camera rig, surface split, AI scan effects), the shared
-                        material kit (materials.ts) and the queue-lane layout
+  experience/           The 3D machine (canvas, stations, station hardware,
+                        particles, pathways, camera rig, surface split, AI scan
+                        effects, atmosphere), the shared material kit
+                        (materials.ts) and the queue-lane layout
                         (queueLayout.ts) that stations, markers and particles
                         all draw from
   fallback/             Live 2D SVG schematic (no-WebGL / diagram view)
@@ -90,9 +119,9 @@ data/                   All copy, site config, projects — no copy in component
 hooks/                  Simulation loop, stage director (the beat map),
                         chapter director, sound director, environment probe,
                         directed GSAP reveals
-lib/                    Stage/beat model, motion tokens, audio synth,
-                        formatting, quality tiers, storage, palette, scroll
-                        state, shared journey actions
+lib/                    Stage/beat model, facility layout, motion tokens,
+                        audio synth, formatting, quality tiers, storage,
+                        palette, scroll state, shared journey actions
 simulation/             The pure engine (see below) — no React imports
 store/                  Zustand stores (simulation runtime, UI state)
 tests/                  Vitest suites (engine + component smoke tests)
@@ -130,7 +159,9 @@ The visual layer subscribes to the same store the engine writes; 3D frame loops 
 ## Rendering-quality system
 
 Three tiers — **High / Balanced / Reduced** — controlling device-pixel-ratio caps, particle
-pool size, queue-marker counts, antialiasing and environment detail (`lib/quality.ts`). A tier
+pool size, queue-marker counts, antialiasing, atmospheric dust and how much of the plant is
+built (`lib/quality.ts`). The reduced tier builds a smaller plant, not an empty room: decks,
+rails, doors and lamps survive so mobile still reads as a place. A tier
 is auto-detected from device signals (cores, memory, pointer type, viewport) and can be
 overridden in the settings panel (persisted for the session). The simulation clock pauses when
 the tab is hidden; the three.js bundle is code-split and lazy-loaded so the opening copy never
@@ -195,5 +226,11 @@ or push the repository to Vercel/Netlify with default Next.js settings. Before d
   nothing in the experience depends on hearing it.
 - Depth of field is deliberately not used. It would need a full-scene post-processing pass for a
   small gain, and the depth here comes from architecture, fog and lighting instead.
+- There are no shadow maps. Shading hierarchy is done with directed light states, contrast and
+  the rim term rather than shadow-casting lights, which would cost several extra passes for a
+  scene this dark. "Deepen the shadows" here means withdrawing fill, not casting geometry.
+- The plant is one bounding volume per layer, so it is drawn whole rather than culled in
+  pieces. At roughly three thousand extra triangles that is the cheaper trade; splitting it
+  into per-level chunks would only pay off if the facility grew substantially.
 - The simulation is a believable abstraction, not an economics model — units are honest
   relative to each other, not calibrated to any real business.

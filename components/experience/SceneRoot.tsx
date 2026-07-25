@@ -55,8 +55,10 @@ const DEPTH: { at: number; near: number; far: number }[] = [
   { at: 6, near: 14, far: 48 },
   // Chapter 6–7: wide, air between the layers.
   { at: 7.5, near: 18, far: 64 },
-  // The closure: depth returns, the machine recedes into it.
-  { at: 9, near: 12, far: 38 },
+  // The closure: depth returns and the machine recedes into it — but the
+  // closing question is read over this frame, so it recedes rather than
+  // disappears.
+  { at: 9, near: 14, far: 45 },
 ];
 
 /**

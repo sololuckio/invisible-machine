@@ -57,7 +57,7 @@ export interface SurfaceDetail {
   dust?: number;
   /** Brushed-streak amplitude. */
   brush?: number;
-  /** Streak frequency per axis — the grain direction. */
+  /** Streak frequency per axis — high across the grain, low along it. */
   grain?: [number, number, number];
   /** Edge/rim specular lift. */
   rim?: number;
@@ -105,7 +105,11 @@ const DETAIL_VERTEX = /* glsl */ `
 const DETAIL_COLOR = /* glsl */ `
   #include <map_fragment>
   float sdWear = sdNoise(vSurfPos * uDetail.x);
-  float sdGrain = sdNoise(vSurfPos * uGrain);
+  // Brushed finish is directional streaks, not blotches, so a plane wave along
+  // the grain axis is both truer to the material and a small fraction of the
+  // cost of a second noise lookup — which matters, because this runs on every
+  // opaque pixel and fill rate is the budget that actually binds on mobile.
+  float sdGrain = sin(dot(vSurfPos, uGrain)) * 0.5 + 0.5;
   float sdDust = smoothstep(0.28, 1.0, vSurfNrm.y) * uDetail.z;
   diffuseColor.rgb *= 1.0 + (sdWear - 0.5) * uDetail.y;
   diffuseColor.rgb = mix(diffuseColor.rgb, uDustCol, sdDust * 0.55);
@@ -137,7 +141,7 @@ function detailed<T extends THREE.MeshStandardMaterial>(mat: T, d: SurfaceDetail
     uDetail: {
       value: new THREE.Vector4(d.scale ?? 1.6, d.mottle ?? 0.07, d.dust ?? 0.12, d.wear ?? 0.16),
     },
-    uGrain: { value: new THREE.Vector3(...(d.grain ?? [1.5, 46, 1.5])) },
+    uGrain: { value: new THREE.Vector3(...(d.grain ?? [48, 1.1, 48])) },
     uBrushRim: { value: new THREE.Vector2(d.brush ?? 0.06, d.rim ?? 0.05) },
     uDustCol: { value: DUST_COLOR },
   };
@@ -162,7 +166,7 @@ function detailed<T extends THREE.MeshStandardMaterial>(mat: T, d: SurfaceDetail
 /** Shaft frames and rails: mid graphite, vertical grain. */
 export const structuralMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#39434f", metalness: 0.3, roughness: 0.58 }),
-  { wear: 0.18, brush: 0.07, grain: [1.4, 52, 1.4], rim: 0.07, dust: 0.14 },
+  { wear: 0.18, brush: 0.07, grain: [58, 1.2, 58], rim: 0.07, dust: 0.14 },
 );
 
 /** Recessed structure — darker, quieter, further back. */
@@ -192,13 +196,13 @@ export const railMat = detailed(
 /** Station bodies: machined shells with a selective sheen. */
 export const shellMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#46525f", metalness: 0.38, roughness: 0.4 }),
-  { scale: 2.4, wear: 0.13, mottle: 0.06, dust: 0.1, brush: 0.08, grain: [2, 60, 2], rim: 0.1 },
+  { scale: 2.4, wear: 0.13, mottle: 0.06, dust: 0.1, brush: 0.08, grain: [62, 1.4, 62], rim: 0.1 },
 );
 
 /** Moving contact surfaces: polished by use, tighter highlight. */
 export const machinedMat = detailed(
   new THREE.MeshStandardMaterial({ color: "#59636e", metalness: 0.74, roughness: 0.22 }),
-  { scale: 3.2, wear: 0.09, mottle: 0.04, dust: 0.03, brush: 0.05, grain: [58, 2, 58], rim: 0.145 },
+  { scale: 3.2, wear: 0.09, mottle: 0.04, dust: 0.03, brush: 0.05, grain: [2.2, 66, 2.2], rim: 0.145 },
 );
 
 /** Inset faces and internal walls: matte, recessed, no sparkle. */
