@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/Slider";
 import { IconPause, IconPlay, IconReset } from "@/components/ui/icons";
 import { UI_STRINGS } from "@/data/copy";
 import type { Controls } from "@/simulation/types";
+import { refreshScrollTriggers } from "@/lib/scrollRefresh";
 import { useSimStore } from "@/store/simStore";
 import { ScenarioChips } from "./ScenarioChips";
 
@@ -98,7 +99,12 @@ export function ControlPanel({ compact = false }: { compact?: boolean }) {
             className="control-more-toggle"
             aria-expanded={moreOpen}
             aria-controls={moreId}
-            onClick={() => setMoreOpen((v) => !v)}
+            onClick={() => {
+              setMoreOpen((v) => !v);
+              // The panel just changed height, so every reveal below it is
+              // now measured against the old layout.
+              refreshScrollTriggers();
+            }}
           >
             All controls
             <span className="control-more-caret" aria-hidden="true" />

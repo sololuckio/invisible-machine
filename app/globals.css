@@ -2276,3 +2276,100 @@ input[type="range"]:active::-webkit-slider-thumb {
   margin: 0.25rem 0 0.3rem;
   color: var(--color-ink);
 }
+
+/* ============================================================
+   Mobile scroll integrity (<768px)
+
+   The console was a scroll trap. `.chapter-console` carried
+   `overflow-y: auto` + `overscroll-behavior: contain`, so once a
+   thumb landed on it the page could not move: the panel absorbed
+   the gesture while it had slack, and `contain` blocked chaining
+   to the document once it did not. Measured from the top of the
+   page, scrolling advanced cleanly until the pointer entered the
+   console, then produced exactly zero pixels indefinitely.
+
+   The fix is to remove the internal scroller rather than tune the
+   chaining. Page scroll always wins.
+   ============================================================ */
+
+@media (max-width: 767px) {
+  .chapter-console {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+  }
+
+  /* A sticky box taller than the viewport can never be scrolled to its own
+     end, so chapters whose content exceeds one screen — the four console
+     chapters and the creator — flow in the normal document instead of
+     pinning. The machine behind them still animates from scroll position. */
+  .chapter:has(.chapter-layout.is-console) .chapter-sticky,
+  #ch-creator .chapter-sticky {
+    position: static;
+    min-height: 0;
+    padding: 6.5rem 0 5.5rem;
+    align-items: flex-start;
+  }
+  /* Still at least a screenful each, so chapter tracking stays sane and a
+     section never ends up shorter than the viewport it is meant to fill. */
+  .chapter:has(.chapter-layout.is-console),
+  #ch-creator {
+    min-height: 100svh;
+  }
+
+  /* Pin budget for the chapters that still hold the screen: no more than
+     ~1.5 viewports of scroll-past, so every swipe produces visible progress.
+     CH.01 (1.4) and CH.08 (0.6) are already inside it; CH.02 was 1.8. */
+  #ch-order {
+    min-height: 250svh;
+  }
+}
+
+/* Idle cue: reappears above the chapter strip when nothing has moved for a
+   while and there is still page to travel. */
+.scroll-nudge {
+  position: fixed;
+  left: 50%;
+  bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px));
+  z-index: 28;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(13, 15, 19, 0.92);
+  border: var(--line);
+  backdrop-filter: blur(9px);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-dim);
+  pointer-events: none;
+  animation: nudge-in 0.45s ease both;
+}
+.scroll-nudge svg {
+  width: 0.9em;
+  height: 0.9em;
+}
+@keyframes nudge-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@media (min-width: 1024px) {
+  .scroll-nudge {
+    bottom: 1.6rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-nudge {
+    animation: none;
+  }
+}
