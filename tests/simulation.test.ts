@@ -166,6 +166,31 @@ describe("recommendation engine", () => {
     expect(a.recommendations[0].id).toBe("raise-automation-baseline");
   });
 
+  it("runs out rather than re-offering advice already taken", () => {
+    // Regression: a fallback used to re-offer the entire list once everything
+    // had been applied, so the console showed Apply buttons that could not
+    // change anything — clicking them forever did nothing at all.
+    let s = createInitialState("viral", SCENARIOS.viral.controls, SCENARIOS.viral.initialStock);
+    s = runCycles(s, 100);
+    for (let i = 0; i < 12; i++) {
+      const { recommendations } = analyze(s);
+      for (const rec of recommendations) {
+        expect(
+          s.appliedRecommendations,
+          `re-offered "${rec.id}" after it was applied`,
+        ).not.toContain(rec.id);
+      }
+      if (recommendations.length === 0) break;
+      s = applyRecommendation(s, recommendations[0]);
+      s = runCycles(s, 5);
+    }
+    // Everything the engine can see for this state has now been taken.
+    const exhausted = analyze(s);
+    for (const rec of exhausted.recommendations) {
+      expect(s.appliedRecommendations).not.toContain(rec.id);
+    }
+  });
+
   it("does not repeat advice that has already been applied", () => {
     let s = boot("viral", 100);
     const first = analyze(s).recommendations[0];

@@ -194,8 +194,13 @@ export function analyze(state: SimState): Analysis {
   }
 
   recs.sort((a, b) => b.score - a.score);
-  const drop = recs.filter((r) => !state.appliedRecommendations.includes(r.id));
-  const finalRecs = drop.length > 0 ? drop : recs;
+  // Advice that has been taken is gone for good. There used to be a fallback
+  // here that re-offered the whole list once everything had been applied, so
+  // the panel was never empty — but `applyRecommendation` refuses to apply the
+  // same recommendation twice, so those were buttons that could not do
+  // anything. Returning nothing is the honest answer, and the console has a
+  // state for it.
+  const finalRecs = recs.filter((r) => !state.appliedRecommendations.includes(r.id));
 
   return {
     narrative: buildNarrative(state, finalRecs),
