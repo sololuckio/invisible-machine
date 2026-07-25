@@ -13,14 +13,22 @@ export interface QualityProfile {
   /** Max queue markers rendered per node. */
   queueDots: number;
   antialias: boolean;
-  /** Render scene fog + shaft structure lines. */
-  environment: boolean;
+  /**
+   * How much of the surrounding plant is built.
+   *  - `full` — every service layer, the maintenance hoist, drifting dust
+   *  - `core` — the parts that carry scale and depth (decks, rails, doors,
+   *    lamps) at reduced density; a smaller plant, not a broken one
+   *  - `none` — the machine alone
+   */
+  environment: "full" | "core" | "none";
+  /** Atmospheric dust motes in the shaft. */
+  motes: number;
 }
 
 export const QUALITY_PROFILES: Record<Quality, QualityProfile> = {
-  high: { dpr: [1, 2], particles: 320, queueDots: 22, antialias: true, environment: true },
-  balanced: { dpr: [1, 1.5], particles: 180, queueDots: 14, antialias: true, environment: true },
-  reduced: { dpr: [1, 1], particles: 90, queueDots: 8, antialias: false, environment: false },
+  high: { dpr: [1, 2], particles: 320, queueDots: 22, antialias: true, environment: "full", motes: 260 },
+  balanced: { dpr: [1, 1.5], particles: 180, queueDots: 14, antialias: true, environment: "full", motes: 150 },
+  reduced: { dpr: [1, 1], particles: 90, queueDots: 8, antialias: false, environment: "core", motes: 0 },
 };
 
 export function isCoarsePointer(): boolean {

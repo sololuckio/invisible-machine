@@ -9,6 +9,7 @@ import { QUALITY_PROFILES } from "@/lib/quality";
 import { scrollState } from "@/lib/scrollState";
 import { NODE_DEFS } from "@/simulation/nodes";
 import { useUIStore } from "@/store/uiStore";
+import { Atmosphere } from "./Atmosphere";
 import { CameraRig } from "./CameraRig";
 import { HeroOrder } from "./HeroOrder";
 import { MachineEnvironment } from "./MachineEnvironment";
@@ -111,7 +112,7 @@ export default function SceneRoot() {
       <color attach="background" args={[PALETTE.bg]} />
       <fog attach="fog" args={[PALETTE.bg, 14, 48]} />
 
-      <MachineEnvironment detailed={profile.environment && revealed} />
+      <MachineEnvironment detail={revealed ? profile.environment : "none"} />
       <SurfacePlate />
       <group visible={revealed}>
         {NODE_DEFS.map((def) => (
@@ -122,6 +123,7 @@ export default function SceneRoot() {
         <OrderParticles key={`pool-${profile.particles}`} pool={profile.particles} />
         <QueueMarkers key={`queue-${profile.queueDots}`} maxPerNode={profile.queueDots} />
         <ScanEffects />
+        <Atmosphere key={`air-${profile.motes}`} count={profile.motes} />
       </group>
       <CameraRig />
     </Canvas>
