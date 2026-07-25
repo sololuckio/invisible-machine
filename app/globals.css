@@ -713,17 +713,64 @@ input[type="range"]:disabled {
    Metrics strip
    ============================================================ */
 
+/* Eleven equal numbers is a data dump. The trio that answers "is this in
+   trouble, and what is it costing?" gets the size; the rest stay available
+   but visibly secondary. Tone colours are identical in both groups — the
+   hierarchy is scale and weight, never a change in what a colour means. */
 .metrics-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1px;
   background: rgba(232, 234, 237, 0.07);
   border: var(--line);
   margin: 0;
 }
+.metrics-primary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+}
+.metrics-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 1px;
+}
 .metric-cell {
   background: var(--color-panel-solid);
   padding: 0.55rem 0.7rem;
+}
+.metrics-primary .metric-cell {
+  padding: 0.8rem 0.8rem 0.85rem;
+}
+.metrics-primary .metric-cell dd {
+  font-size: 1.6rem;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.metrics-primary .metric-cell dt {
+  font-size: 0.58rem;
+  margin-bottom: 0.34rem;
+}
+.metrics-secondary .metric-cell {
+  padding: 0.42rem 0.6rem;
+}
+.metrics-secondary .metric-cell dd {
+  font-size: 0.84rem;
+}
+.metrics-secondary .metric-cell dt {
+  font-size: 0.53rem;
+  opacity: 0.92;
+}
+@media (max-width: 520px) {
+  .metrics-primary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .metrics-primary .metric-cell:first-child {
+    grid-column: 1 / -1;
+  }
+  .metrics-primary .metric-cell dd {
+    font-size: 1.35rem;
+  }
 }
 .metric-cell dt {
   font-family: var(--font-geist-mono), monospace;

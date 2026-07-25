@@ -17,6 +17,9 @@ import { useUIStore } from "@/store/uiStore";
 
 type Tone = "ok" | "warn" | "danger" | "neutral";
 
+/** How many leading cells are the headline trio rendered as large tiles. */
+const PRIMARY = 3;
+
 function toneFor(value: number, warnBelow: number, dangerBelow: number): Tone {
   if (value < dangerBelow) return "danger";
   if (value < warnBelow) return "warn";
@@ -40,6 +43,9 @@ export function MetricsStrip() {
     })),
   );
 
+  // Order matters: the first three are the headline trio and are rendered as
+  // large tiles. Eleven equal-weight numbers is a data dump — these three are
+  // the ones that answer "is the machine in trouble, and what is it costing?".
   const cells: {
     label: string;
     value: number;
@@ -53,6 +59,20 @@ export function MetricsStrip() {
       format: fmtPct,
       tone: toneFor(m.health, 75, 50),
       title: "Composite of satisfaction, delivery performance, congestion and errors",
+    },
+    {
+      label: "Trapped revenue",
+      value: m.trapped,
+      format: fmtMoney,
+      tone: m.trapped > 12000 ? "danger" : m.trapped > 4500 ? "warn" : "ok",
+      title: "Value stuck as work-in-progress",
+    },
+    {
+      label: "In queues",
+      value: m.queue,
+      format: fmtInt,
+      tone: m.queue > 250 ? "danger" : m.queue > 90 ? "warn" : "ok",
+      title: "Orders waiting somewhere in the machine",
     },
     {
       label: "Satisfaction",
@@ -81,25 +101,11 @@ export function MetricsStrip() {
       title: "Completion rate — should keep up with arrivals",
     },
     {
-      label: "In queues",
-      value: m.queue,
-      format: fmtInt,
-      tone: m.queue > 250 ? "danger" : m.queue > 90 ? "warn" : "ok",
-      title: "Orders waiting somewhere in the machine",
-    },
-    {
       label: "Order lead time",
       value: m.processing,
       format: fmtHours,
       tone: m.processing > 60 ? "danger" : m.processing > 38 ? "warn" : "ok",
       title: "Click to doorstep at current congestion",
-    },
-    {
-      label: "Trapped revenue",
-      value: m.trapped,
-      format: fmtMoney,
-      tone: m.trapped > 12000 ? "danger" : m.trapped > 4500 ? "warn" : "ok",
-      title: "Value stuck as work-in-progress",
     },
     {
       label: "Captured revenue",
@@ -162,20 +168,25 @@ export function MetricsStrip() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  const cell = (c: (typeof cells)[number], i: number) => (
+    <div key={c.label} className={`metric-cell tone-${c.tone}`} title={c.title}>
+      <dt>{c.label}</dt>
+      <dd
+        ref={(el) => {
+          ddRefs.current[i] = el;
+        }}
+      >
+        {c.format(shown.current[i] ?? c.value)}
+      </dd>
+    </div>
+  );
+
   return (
     <dl className="metrics-strip" aria-label="Live system metrics">
-      {cells.map((c, i) => (
-        <div key={c.label} className={`metric-cell tone-${c.tone}`} title={c.title}>
-          <dt>{c.label}</dt>
-          <dd
-            ref={(el) => {
-              ddRefs.current[i] = el;
-            }}
-          >
-            {c.format(shown.current[i] ?? c.value)}
-          </dd>
-        </div>
-      ))}
+      <div className="metrics-primary">{cells.slice(0, PRIMARY).map((c, i) => cell(c, i))}</div>
+      <div className="metrics-secondary">
+        {cells.slice(PRIMARY).map((c, i) => cell(c, i + PRIMARY))}
+      </div>
     </dl>
   );
 }
