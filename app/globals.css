@@ -22,6 +22,8 @@
   --color-hero: #ffe9c4;
   --line: 1px solid rgba(232, 234, 237, 0.09);
   --scroll-progress: 0;
+  /* How far instrumentation recedes during cinematic beats. */
+  --stage-recede: 0.26;
 }
 
 @theme inline {
@@ -588,7 +590,15 @@ input[type="range"]:disabled {
 .chapter-heading.size-lg .chapter-title {
   font-size: clamp(2.5rem, 6.5vw, 5.2rem);
 }
+/* The mask each headline line rises through. Padding/negative margin leave
+   room for descenders so the mask never clips the type itself. */
 .chapter-title-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+.chapter-title-inner {
   display: block;
 }
 .chapter-body {
@@ -1466,9 +1476,210 @@ input[type="range"]:disabled {
    Reduced motion
    ============================================================ */
 
+/* ============================================================
+   Cinematic mode
+   During story beats the instrumentation recedes so the machine has the
+   stage; during control beats it is fully present. Nothing is removed from
+   the DOM and nothing loses pointer events — hovering or focusing anything
+   restores it instantly, because the visitor always outranks the story.
+   Reduced motion never enters cinematic mode at all.
+   ============================================================ */
+
+.chapter-console {
+  transition:
+    opacity 0.55s ease,
+    filter 0.55s ease;
+}
+[data-stage="cinematic"] .chapter-console {
+  opacity: var(--stage-recede);
+  filter: saturate(0.6);
+}
+[data-stage="cinematic"] .chapter-console:hover,
+[data-stage="cinematic"] .chapter-console:focus-within {
+  opacity: 1;
+  filter: none;
+}
+
+.nav-links,
+.nav-brand-sub {
+  transition: opacity 0.5s ease;
+}
+[data-stage="cinematic"] .nav-links,
+[data-stage="cinematic"] .nav-brand-sub {
+  opacity: 0.4;
+}
+.nav-bar:hover .nav-links,
+.nav-bar:focus-within .nav-links,
+.nav-bar:hover .nav-brand-sub,
+.nav-bar:focus-within .nav-brand-sub {
+  opacity: 1;
+}
+
+.chapter-dot-label,
+.chapter-strip {
+  transition: opacity 0.5s ease;
+}
+[data-stage="cinematic"] .chapter-strip {
+  opacity: 0.55;
+}
+.chapter-strip:hover,
+.chapter-strip:focus-within {
+  opacity: 1;
+}
+
+/* Station labels fade in rather than appearing between one frame and the next. */
+.node-label {
+  animation: label-in 0.4s ease both;
+}
+@keyframes label-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Micro-interactions
+   ============================================================ */
+
+.btn {
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.12s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+/* Touch devices get the feedback that hover would otherwise carry. */
+@media (hover: none) {
+  .btn:active:not(:disabled) {
+    background: rgba(110, 231, 255, 0.14);
+    border-color: var(--color-signal);
+  }
+  .chip:active,
+  .settings-option:active,
+  .chapter-strip-seg:active {
+    background: rgba(110, 231, 255, 0.12);
+  }
+}
+
+.settings-panel {
+  transform-origin: top right;
+  animation: panel-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.settings-option {
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.settings-option:hover:not(:disabled) {
+  background: rgba(232, 234, 237, 0.035);
+}
+
+.chip,
+.mode-card,
+.work-card,
+.metric-cell {
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.mode-card:hover,
+.work-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 234, 237, 0.18);
+}
+.metric-cell dd {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  cursor: grab;
+}
+input[type="range"]:active {
+  cursor: grabbing;
+}
+input[type="range"]::-webkit-slider-thumb {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.16s ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(110, 231, 255, 0.12);
+}
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+/* ============================================================
+   Mobile recomposition
+   ============================================================ */
+
+/* The finale carries more than a viewport of content on short screens, so it
+   starts below the fixed bar and grows downward instead of centring and
+   pushing its own chapter index up underneath the nav. */
+.finale .chapter-sticky {
+  justify-content: flex-start;
+  padding-top: 6.5rem;
+}
+
+@media (max-width: 640px) {
+  .finale .chapter-heading.size-lg .chapter-title {
+    font-size: clamp(2rem, 8.4vw, 2.9rem);
+  }
+  .finale-actions {
+    margin-top: 1.8rem;
+  }
+  .finale-links {
+    margin-top: 1.9rem;
+    gap: 1.4rem;
+  }
+  /* Full-width targets: nothing important sits on a 40px tap area. */
+  .finale-buttons .btn {
+    flex: 1 1 13rem;
+    justify-content: center;
+  }
+}
+
+/* Portrait consoles get more of the screen — the machine is already
+   recomposed for the viewport by the camera rig. */
+@media (max-width: 900px) {
+  .chapter-console {
+    max-height: calc(100svh - 13rem);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  .node-label,
+  .settings-panel {
+    animation: none;
+  }
+  .btn:active:not(:disabled),
+  .mode-card:hover,
+  .work-card:hover {
+    transform: none;
   }
   .scroll-hint svg,
   .ai-scanline,

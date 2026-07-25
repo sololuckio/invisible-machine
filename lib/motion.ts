@@ -29,6 +29,30 @@ export function damp(rate: number, delta: number): number {
   return 1 - Math.exp(-delta * rate);
 }
 
+/** Clamp to 0..1 — used constantly when shaping scroll into stage progress. */
+export function clamp01(t: number): number {
+  return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
+/** Map a value from one range into normalised 0..1 progress. */
+export function span(value: number, from: number, to: number): number {
+  return clamp01((value - from) / (to - from || 1));
+}
+
+/** Heavy arrival — long deceleration, for objects with real mass. */
+export function easeOutQuint(t: number): number {
+  return 1 - Math.pow(1 - t, 5);
+}
+
+/**
+ * A decaying oscillation applied after something reaches its stop: the
+ * suspension taking up the load. `t` is seconds (or progress) since arrival.
+ */
+export function settle(t: number, amplitude = 1, rate = 9, frequency = 22): number {
+  if (t <= 0) return 0;
+  return Math.exp(-t * rate) * Math.sin(t * frequency) * amplitude;
+}
+
 /** Timing constants (seconds) shared by DOM and 3D layers. */
 export const TIMING = {
   /** AI scan sweep — must match the AI panel's countdown. */
@@ -37,4 +61,8 @@ export const TIMING = {
   routeBuild: 1.8,
   /** Station reaction pop after an applied recommendation. */
   stationPop: 1.4,
+  /** The constraint lock holding before the intelligence chapter. */
+  lock: 1.1,
+  /** Downstream release wave travelling out of a restructured station. */
+  releaseWave: 2.4,
 } as const;

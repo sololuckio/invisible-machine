@@ -55,20 +55,25 @@ export function ChapterHeading({
   const body = bodyUpTo === undefined ? ch.body : ch.body.slice(0, bodyUpTo);
   return (
     <div ref={ref} className={`chapter-heading size-${size}`}>
-      <p className="tech-label chapter-kicker" data-reveal>
+      <p className="tech-label chapter-kicker" data-reveal="kicker">
         {ch.kicker}
       </p>
       <Tag id={`${ch.anchor}-title`} className="chapter-title">
         {ch.headline.map((line, i) => (
-          <span key={line} className="chapter-title-line" data-reveal>
-            {/* Trailing space keeps copied text, screen readers and search
-                from reading adjacent lines as one word. */}
-            {i < ch.headline.length - 1 ? `${line} ` : line}
+          // The outer span is a mask; the inner one is what rises through it,
+          // so the biggest statements get the strongest treatment while the
+          // text itself stays a single, ordinary, selectable string.
+          <span key={line} className="chapter-title-line">
+            <span className="chapter-title-inner" data-reveal="lead">
+              {/* Trailing space keeps copied text, screen readers and search
+                  from reading adjacent lines as one word. */}
+              {i < ch.headline.length - 1 ? `${line} ` : line}
+            </span>
           </span>
         ))}
       </Tag>
       {body.map((p) => (
-        <p key={p} className="chapter-body" data-reveal>
+        <p key={p} className="chapter-body" data-reveal="body">
           {p}
         </p>
       ))}

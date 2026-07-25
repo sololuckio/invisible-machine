@@ -11,6 +11,12 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
  * `scrollState` (for the 3D camera and effects), a `--scroll-progress`
  * CSS variable (for nav progress bars) and the active-chapter store value.
  * No React re-renders on scroll.
+ *
+ * The loop samples `scrollY` directly rather than trusting scroll events:
+ * events can be coalesced or missed during large programmatic jumps (anchor
+ * navigation, restart, keyboard paging), and a missed event would leave the
+ * whole 3D narrative pointing at the wrong chapter. Reading two numbers per
+ * frame and returning early when nothing moved is cheaper than being wrong.
  */
 export function ScrollTracker() {
   useEffect(() => {
@@ -19,7 +25,6 @@ export function ScrollTracker() {
 
     let raf = 0;
     const update = () => {
-      raf = 0;
       const vh = window.innerHeight;
 
       let cf = 1;
@@ -66,17 +71,34 @@ export function ScrollTracker() {
       if (ui.surfaceOpen !== open) ui.setSurfaceOpen(open);
     };
 
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(update);
+    let lastY = -1;
+    let lastH = -1;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      // scrollY and innerHeight are both layout-free reads.
+      const y = window.scrollY;
+      const h = window.innerHeight;
+      if (y === lastY && h === lastH) return;
+      lastY = y;
+      lastH = h;
+      update();
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (!raf) {
+        raf = requestAnimationFrame(loop);
+      }
     };
 
     update();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    document.addEventListener("visibilitychange", onVisibility);
+    if (!document.hidden) raf = requestAnimationFrame(loop);
     return () => {
       if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
