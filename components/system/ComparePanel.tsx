@@ -79,27 +79,45 @@ export function ComparePanel({ scenarioId }: { scenarioId?: ScenarioId }) {
                 <th scope="col">Metric</th>
                 <th scope="col">Ignored</th>
                 <th scope="col">Managed</th>
-                <th scope="col">Shift</th>
+                <th scope="col">
+                  Shift
+                  <span className="ledger-legend" aria-hidden="true">
+                    {" "}
+                    ▲ better
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {ROWS.map((row) => {
                 const before = comparison.before[row.key];
                 const after = comparison.after[row.key];
-                const improved = row.higherIsBetter ? after >= before : after <= before;
                 const deltaPct =
                   Math.abs(before) > 0.01 ? ((after - before) / Math.abs(before)) * 100 : 0;
+                const flat = Math.abs(deltaPct) < 0.5;
+                const improved = row.higherIsBetter ? after >= before : after <= before;
+                // The sign shows which way the number moved; the mark shows
+                // whether that was a win. They disagree on every row where
+                // lower is better — "orders lost, −44%" is the whole point of
+                // the ledger — so the verdict cannot be left to colour alone.
+                const verdict = flat ? "flat" : improved ? "good" : "bad";
                 return (
                   <tr key={row.key}>
                     <th scope="row">{row.label}</th>
                     <td>{row.format(before)}</td>
                     <td>{row.format(after)}</td>
-                    <td className={improved ? "delta-good" : "delta-bad"}>
-                      {deltaPct >= 0 ? "+" : "−"}
-                      {Math.abs(deltaPct) >= 100
-                        ? `${Math.round(Math.abs(deltaPct))}%`
-                        : `${Math.abs(deltaPct).toFixed(0)}%`}
-                      <span className="sr-only">{improved ? " (improved)" : " (worse)"}</span>
+                    <td className={`ledger-delta delta-${verdict}`}>
+                      <span className="ledger-delta-mark" aria-hidden="true">
+                        {flat ? "=" : improved ? "▲" : "▼"}
+                      </span>
+                      <span className="ledger-delta-value">
+                        {flat
+                          ? "0%"
+                          : `${deltaPct >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(0)}%`}
+                      </span>
+                      <span className="sr-only">
+                        {flat ? " (unchanged)" : improved ? " (improved)" : " (worse)"}
+                      </span>
                     </td>
                   </tr>
                 );

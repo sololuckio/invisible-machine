@@ -1122,11 +1122,35 @@ input[type="range"]:disabled {
 .compare-table td {
   color: var(--color-dim);
 }
+/* The shift column is the answer the whole chapter builds to, so it carries
+   a direction mark as well as a colour. Colour alone would leave the verdict
+   unreadable to a red-green colour-blind visitor — and on half these rows the
+   arithmetic sign disagrees with the verdict anyway ("orders lost, −44%" is a
+   win), so the mark is doing real work, not decoration. */
+.ledger-delta {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.ledger-delta-mark {
+  display: inline-block;
+  width: 0.85em;
+  margin-right: 0.15em;
+  font-size: 0.82em;
+}
 .delta-good {
   color: var(--color-success) !important;
 }
 .delta-bad {
   color: var(--color-danger) !important;
+}
+.delta-flat {
+  color: var(--color-faint) !important;
+}
+.ledger-legend {
+  font-size: 0.82em;
+  color: var(--color-faint);
+  letter-spacing: 0.06em;
 }
 .compare-preview-buttons {
   display: flex;
